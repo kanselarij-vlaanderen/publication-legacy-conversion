@@ -66,14 +66,19 @@ get '/ingest' do
 
   log.info "graph: #{graph}"
 
+  start = -1
   batch_number = 1
+  batch_size = 1000
   publications_length = publicaties.size
 
   doc.css('Dossieropvolging').each_with_index do |publicatie, index|
-    process_publicatie publicatie
+    process_publicatie publicatie if index > start
 
-    if (index > 0 and index % 1000 == 0) or index == publications_length -1
-      log.info "[ONGOING] Writing generated data to files for records #{index-1000} until #{index}..."
+    if index > 0 and index <= start and index % batch_size == 0
+      log.info "[ONGOING] Skipping records #{index-batch_size} until #{index}..."
+    end
+    if (index > 0 and index > start and index % batch_size == 0) or index == publications_length -1
+      log.info "[ONGOING] Writing generated data to files for records #{index-batch_size} until #{index}..."
       RDF::Writer.open("#{ttl_output_file}-#{batch_number}.ttl") { |writer| writer << PUBLIC_GRAPH }
       File.open("#{ttl_output_file}-#{batch_number}.graph", "w+") { |f| f.puts(KANSELARIJ_GRAPH)}
       File.open(error_output_file, "a+") { |f| f.puts(ERRORS) }
@@ -136,6 +141,8 @@ def process_publicatie(publicatie)
       return
     end
 
+    openingsdatum = opdracht_formeel_ontvangen.empty? ? datum : opdracht_formeel_ontvangen
+
     identification_uri = create_identification(dossiernummer)
 
     unless bevoegde_minister.empty?
@@ -152,20 +159,17 @@ def process_publicatie(publicatie)
       validate_result(documents, "Publication #{dossiernummer} query reference document #{document_nr}", true, true) unless documents.nil?
       if documents and documents.length > 0
         reference_document_uri = documents.first[:stukUri]
+        case_uri = documents.first[:caseUri]
+        treatment_uri = documents.first[:treatmentUri]
+        if reference_document_uri.nil? or case_uri.nil? or treatment_uri.nil?
+          ERRORS << "ERROR: no document, case or treatment found for publication #{dossiernummer} with document number '#{document_nr}'."
+        end
       else
         ERRORS << "ERROR: no document found for publication #{dossiernummer} with document number '#{document_nr}'."
       end
     end
 
-    if reference_document_uri
-      cases = query_case(reference_document_uri)
-      validate_result(cases, "Publication #{dossiernummer} query case #{document_nr}", false, true)
-      case_uri = cases.first[:caseUri] if cases and cases.length > 0
-
-      treatments = query_treatment(reference_document_uri)
-      validate_result(treatments, "Publication #{dossiernummer} query treatment #{document_nr}", false, true)
-      treatment_uri = treatments.first[:treatmentUri] if treatments and treatments.length > 0
-    else
+    if reference_document_uri.nil?
       case_uri = create_case(opschrift)
       treatment_uri = create_treatment(dossier_date)
     end
@@ -221,6 +225,7 @@ def process_publicatie(publicatie)
       numac_number: numac_number_uri,
       remark: remark,
       caze: case_uri,
+      openingsdatum: openingsdatum,
       treatment: treatment_uri,
       pages: pages,
       document_number: document_nr
@@ -270,12 +275,12 @@ def query_mandatees(dossiernummer, names, date)
     query += "   GRAPH <#{MINISTERS_GRAPH}> {"
     query += "     ?mandateeUri a <#{MANDAAT.Mandataris}> ;"
     query += "                  <#{MANDAAT.isBestuurlijkeAliasVan}> ?person ; "
-    query += "                  <#{MANDAAT.start}> ?start ; "
-    query += "                  <#{MANDAAT.einde}> ?end . "
+    query += "                  <#{MANDAAT.start}> ?start ."
     query += "     ?person <#{FOAF.familyName}> ?name ."
+    query += "     OPTIONAL { ?mandateeUri <#{MANDAAT.einde}> ?end .}"
     query += "     FILTER (contains(lcase(str(?name)), #{minister.sparql_escape}))"
     query += "     FILTER ( ?start <= #{publicationDate.sparql_escape})"
-    query += "     FILTER ( ?end >= #{publicationDate.sparql_escape})"
+    query += "     FILTER ( !bound(?end) || ?end >= #{publicationDate.sparql_escape})"
     query += "   }"
     query += " } LIMIT 1"
 
@@ -301,10 +306,10 @@ def query_all_mandatees(dossiernummer, date)
   query =  " SELECT ?mandateeUri WHERE {"
   query += "   GRAPH <#{MINISTERS_GRAPH}> {"
   query += "     ?mandateeUri a <#{MANDAAT.Mandataris}> ;"
-  query += "                  <#{MANDAAT.start}> ?start ; "
-  query += "                  <#{MANDAAT.einde}> ?end . "
+  query += "                  <#{MANDAAT.start}> ?start ."
+  query += "     OPTIONAL { ?mandateeUri <#{MANDAAT.einde}> ?end .}"
   query += "     FILTER ( ?start < #{publicationDate.sparql_escape})"
-  query += "     FILTER ( ?end > #{publicationDate.sparql_escape})"
+  query += "     FILTER ( !bound(?end) || ?end > #{publicationDate.sparql_escape})"
   query += "   }"
   query += " }"
 
@@ -348,8 +353,13 @@ def query_reference_document(dossiernummer, document_number)
   medTitle = "VR #{year4} #{titleParts[:day]}#{titleParts[:month]} MED.#{titleParts[:number]}"
   log.info "reformatting document_number '#{document_number}' into '#{docTitle}'"
 
-  query =  " SELECT ?stukUri WHERE {"
+  query =  " SELECT ?stukUri ?caseUri ?treatmentUri WHERE {"
   query += "   GRAPH <#{KANSELARIJ_GRAPH}> {"
+  query += "     ?treatmentUri a <#{BESLUIT.BehandelingVanAgendapunt}> ;"
+  query += "              <#{BESLUITVORMING.heeftOnderwerp}> ?agendaItem ."
+  query += "     ?agendaItem <#{BESLUITVORMING.geagendeerdStuk}> ?stukUri ."
+  query += "     ?caseUri a <#{DOSSIER.Dossier}> ;"
+  query += "              <#{DOSSIER['Dossier.bestaatUit']}> ?stukUri ."
   query += "     ?stukUri a <#{DOSSIER.Stuk}> ;"
   query += "              <#{DCT.title}> ?title ."
   query += "   FILTER (strstarts(str(?title), ?titleValue) )"
@@ -379,29 +389,6 @@ def create_treatment(date)
   PUBLIC_GRAPH << RDF.Statement(treatment_uri, DOSSIER['Activiteit.startdatum'], startDate)
   PUBLIC_GRAPH << RDF.Statement(treatment_uri, DCT.source, DATASOURCE)
   treatment_uri
-end
-
-def query_case(reference_document_uri)
-  query =  " SELECT ?caseUri WHERE {"
-  query += "   GRAPH <#{KANSELARIJ_GRAPH}> {"
-  query += "     ?caseUri a <#{DOSSIER.Dossier}> ;"
-  query += "              <#{DOSSIER['Dossier.bestaatUit']}> <#{reference_document_uri}> ."
-  query += "   }"
-  query += " } LIMIT 1"
-
-  query(query)
-end
-
-def query_treatment(reference_document_uri)
-  query =  " SELECT ?treatmentUri WHERE {"
-  query += "   GRAPH <#{KANSELARIJ_GRAPH}> {"
-  query += "     ?agendaItem <#{BESLUITVORMING.geagendeerdStuk}> <#{reference_document_uri}> ."
-  query += "     ?treatmentUri a <#{BESLUIT.BehandelingVanAgendapunt}> ;"
-  query += "              <#{BESLUITVORMING.heeftOnderwerp}> ?agendaItem ."
-  query += "   }"
-  query += " } LIMIT 1"
-
-  query(query)
 end
 
 def map_regelgeving_type(soort)
@@ -576,6 +563,7 @@ def set_publicationflow(data)
   publication_uri = data[:publication_uri]
 
   creation_date = DateTime.strptime(data[:created], '%Y-%m-%dT%H:%M:%S') unless data[:created].empty?
+  open_date = DateTime.strptime(data[:openingsdatum], '%Y-%m-%dT%H:%M:%S') unless data[:openingsdatum].empty?
 
   PUBLIC_GRAPH << RDF.Statement(publication_uri, ADMS.identifier, data[:identification]) unless data[:identification].nil?
   PUBLIC_GRAPH << RDF.Statement(publication_uri, DCT.alternative, data[:short_title]) unless data[:short_title].nil?
@@ -586,6 +574,7 @@ def set_publicationflow(data)
   PUBLIC_GRAPH << RDF.Statement(publication_uri, PUB.identifier, data[:numac_number]) unless data[:numac_number].nil?
   PUBLIC_GRAPH << RDF.Statement(publication_uri, RDFS.comment, data[:remark]) unless data[:remark].nil?
   PUBLIC_GRAPH << RDF.Statement(publication_uri, DOSSIER.behandelt, data[:caze]) unless data[:caze].nil?
+  PUBLIC_GRAPH << RDF.Statement(publication_uri, DOSSIER.openingsdatum, open_date) unless open_date.nil?
   PUBLIC_GRAPH << RDF.Statement(publication_uri, DCT.subject, data[:treatment]) unless data[:treatment].nil?
   PUBLIC_GRAPH << RDF.Statement(publication_uri, EXT.legacyDocumentNumberMSAccess, data[:document_number]) unless data[:document_number].empty?
 
