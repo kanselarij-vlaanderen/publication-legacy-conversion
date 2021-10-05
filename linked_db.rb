@@ -21,9 +21,4 @@ module LinkedDB
     # added new line support (missing in mu-ruby-template)
     '"' + string.gsub(/[\\"']/) { |s| '\\' + s }.gsub(/\n/, '\n') + '"'
   end
-
-  def self.sparql_escape_datetime dateTime
-    # no xsd:dateTime typing: SELECTs failed due to not all dates having this
-    '"' + dateTime.xmlschema + '"'
-  end
 end
