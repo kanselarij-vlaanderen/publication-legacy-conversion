@@ -49,7 +49,8 @@ $public_graph = RDF::Graph.new
 
 $errors = Array.new
 
-def run(input_dir="/data/input/", output_dir="/data/output/")
+# publicaties.nil? => all publicaties
+def run(input_dir="/data/input/", output_dir="/data/output/", publicaties = nil)
   log.info "[STARTED] Starting publication legacy conversion"
 
   legacy_input_file_name = "legacy_data.xml"
@@ -67,14 +68,15 @@ def run(input_dir="/data/input/", output_dir="/data/output/")
   
   $query_mandatees = QueryMandatees.new(
     "#{input_dir}mandatees-corrections.csv")
-  $query_government_domains = QueryGovernmentDomains.new($errors_csv, "#{input_dir}government-domain-abbreviations.csv")
+  $query_government_domains = QueryGovernmentDomains.new($errors_csv,
+    "#{input_dir}government-domains-abbreviations.csv")
 
   log.info "-- Input file : #{legacy_input_file}"
   log.info "-- Output file : #{ttl_output_file}"
 
   doc = Nokogiri::XML(File.open(legacy_input_file))
 
-  publicaties = doc.css('//Dossieropvolging')
+  publicaties = doc.xpath('//Dossieropvolging') if publicaties.nil?
 
   log.info "graph: #{graph}"
 
@@ -83,7 +85,7 @@ def run(input_dir="/data/input/", output_dir="/data/output/")
   batch_size = 1000
   publications_length = publicaties.size
 
-  doc.css('Dossieropvolging').each_with_index do |publicatie, index|
+  publicaties.each_with_index do |publicatie, index|
     process_publicatie publicatie if index > start
 
     if index > 0 and index <= start and index % batch_size == 0
@@ -510,7 +512,8 @@ def set_publicationflow(data)
   $public_graph << RDF.Statement(publication_uri, ADMS.identifier, data[:identification]) unless data[:identification].nil?
   $public_graph << RDF.Statement(publication_uri, DCT.alternative, data[:short_title]) unless data[:short_title].nil?
   $public_graph << RDF.Statement(publication_uri, PUB.regelgevingType, data[:regulation_type]) unless data[:regulation_type].nil?
-  $public_graph << RDF.Statement(publication_uri, PUB.referentieDocument, data[:reference_document]) unless data[:reference_document].nil?
+  # disabled: impossible to determine reference document with current data
+  # $public_graph << RDF.Statement(publication_uri, PUB.referentieDocument, data[:reference_document]) unless data[:reference_document].nil?
   $public_graph << RDF.Statement(publication_uri, DCT.created, creation_date) unless creation_date.nil?
   $public_graph << RDF.Statement(publication_uri, PUB.publicatieWijze, data[:mode]) unless data[:mode].nil?
   $public_graph << RDF.Statement(publication_uri, PUB.identifier, data[:numac_number]) unless data[:numac_number].nil?
@@ -528,7 +531,8 @@ def set_publicationflow(data)
     $public_graph << RDF.Statement(publication_uri, EXT.heeftBevoegdeVoorPublicatie, mandatee)
   end
 
-  $public_graph << RDF.Statement(data[:reference_document], FABIO.hasPageCount, data[:pages]) unless (data[:reference_document].nil? or data[:pages].nil?)
+  # disabled: impossible to determine reference document with current data
+  # $public_graph << RDF.Statement(data[:reference_document], FABIO.hasPageCount, data[:pages]) unless (data[:reference_document].nil? or data[:pages].nil?)
 end
 
 def validate_result(result, name, optional, exact)
