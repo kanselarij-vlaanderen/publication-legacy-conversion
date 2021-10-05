@@ -61,9 +61,6 @@ module AccessDB
 
   def record(node)
     Record.new node
-    # fields.map { |key| 
-    #   [key, field(node, key)]
-    # } .to_h
   end
   
   def field(n, name)

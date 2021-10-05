@@ -11,7 +11,8 @@ require_relative 'conversion.rb'
 # require_relative './scripts/beleidsdomeinen_in_access_db.rb'
 # require_relative './scripts/beleidsdomeinen_in_linked_db.rb'
 
-# require_relative './query_government_domains.rb'
+# nodes = AccessDB::nodes[(0...100)]
+# run('./data/input/', './data/output/', nodes)
 
-nodes = AccessDB::nodes[(0...100)]
-run('./data/input/', './data/output/', nodes)
+
+
