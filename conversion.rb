@@ -372,29 +372,29 @@ def map_mode(publicatie_wijze)
 end
 
 def create_translation_subcase(data)
-  startDate = DateTime.strptime(data[:vertaling_aangevraagd], '%Y-%m-%dT%H:%M:%S') unless data[:vertaling_aangevraagd].empty?
-  endDate = DateTime.strptime(data[:vertaling_ontvangen], '%Y-%m-%dT%H:%M:%S') unless data[:vertaling_ontvangen].empty?
-  dueDate = DateTime.strptime(data[:limiet_vertaling], '%Y-%m-%dT%H:%M:%S') unless data[:limiet_vertaling].empty?
+  activity_start_date = DateTime.strptime(data[:vertaling_aangevraagd], '%Y-%m-%dT%H:%M:%S') unless data[:vertaling_aangevraagd].empty?
+  activity_end_date = DateTime.strptime(data[:vertaling_ontvangen], '%Y-%m-%dT%H:%M:%S') unless data[:vertaling_ontvangen].empty?
+  due_date = DateTime.strptime(data[:limiet_vertaling], '%Y-%m-%dT%H:%M:%S') unless data[:limiet_vertaling].empty?
 
-  startDate = DateTime.strptime(data[:created], '%Y-%m-%dT%H:%M:%S') if startDate.nil? and not data[:created].empty?
-  endDate = DateTime.strptime(data[:publicatiedatum], '%Y-%m-%dT%H:%M:%S') if endDate.nil? and not data[:publicatiedatum].empty?
+  subcase_start_date = DateTime.strptime(data[:created], '%Y-%m-%dT%H:%M:%S') if activity_start_date.nil? and not data[:created].empty?
+  subcase_end_date = DateTime.strptime(data[:publicatiedatum], '%Y-%m-%dT%H:%M:%S') if activity_end_date.nil? and not data[:publicatiedatum].empty?
 
   uuid = generate_uuid()
   subcase_uri = RDF::URI(BASE_URI % { :resource => 'procedurestap', :id => uuid})
   $public_graph << RDF.Statement(subcase_uri, RDF.type, PUB.VertalingProcedurestap)
   $public_graph << RDF.Statement(subcase_uri, MU_CORE.uuid, uuid)
-  $public_graph << RDF.Statement(subcase_uri, DOSSIER['Procedurestap.startdatum'], startDate) unless startDate.nil?
-  $public_graph << RDF.Statement(subcase_uri, DOSSIER['Procedurestap.einddatum'], endDate) unless endDate.nil?
-  $public_graph << RDF.Statement(subcase_uri, TMO.dueDate, dueDate) unless dueDate.nil?
+  $public_graph << RDF.Statement(subcase_uri, DOSSIER['Procedurestap.startdatum'], activity_start_date) unless activity_start_date.nil?
+  $public_graph << RDF.Statement(subcase_uri, DOSSIER['Procedurestap.einddatum'], activity_end_date) unless activity_end_date.nil?
+  $public_graph << RDF.Statement(subcase_uri, TMO.dueDate, due_date) unless due_date.nil?
   $public_graph << RDF.Statement(subcase_uri, DCT.source, DATASOURCE)
 
-  if startDate or endDate or dueDate
+  if subcase_start_date or subcase_end_date or due_date
     request_activity_uuid = generate_uuid()
     request_activity_uri = RDF::URI(CONCEPT_URI % { :resource => 'aanvraag-activiteit', :id => request_activity_uuid})
     $public_graph << RDF.Statement(request_activity_uri, RDF.type, PUB.AanvraagActiviteit)
     $public_graph << RDF.Statement(request_activity_uri, MU_CORE.uuid, request_activity_uuid)
-    $public_graph << RDF.Statement(request_activity_uri, DOSSIER['Activiteit.startdatum'], startDate) unless startDate.nil?
-    $public_graph << RDF.Statement(request_activity_uri, DOSSIER['Activiteit.einddatum'], startDate) unless startDate.nil?
+    $public_graph << RDF.Statement(request_activity_uri, DOSSIER['Activiteit.startdatum'], activity_start_date) unless activity_start_date.nil?
+    $public_graph << RDF.Statement(request_activity_uri, DOSSIER['Activiteit.einddatum'], activity_end_date) unless activity_end_date.nil? # request_activity.end_date == request_activity.start_date
     $public_graph << RDF.Statement(request_activity_uri, PUB.aanvraagVindtPlaatsTijdensVertaling, subcase_uri)
     $public_graph << RDF.Statement(request_activity_uri, DCT.source, DATASOURCE)
 
@@ -402,8 +402,8 @@ def create_translation_subcase(data)
     translation_activity_uri = RDF::URI(CONCEPT_URI % { :resource => 'vertaal-activiteit', :id => translation_activity_uuid})
     $public_graph << RDF.Statement(translation_activity_uri, RDF.type, PUB.VertaalActiviteit)
     $public_graph << RDF.Statement(translation_activity_uri, MU_CORE.uuid, translation_activity_uuid)
-    $public_graph << RDF.Statement(translation_activity_uri, DOSSIER['Activiteit.startdatum'], startDate) unless startDate.nil?
-    $public_graph << RDF.Statement(translation_activity_uri, DOSSIER['Activiteit.einddatum'], endDate) unless endDate.nil?
+    $public_graph << RDF.Statement(translation_activity_uri, DOSSIER['Activiteit.startdatum'], activity_start_date) unless activity_start_date.nil?
+    $public_graph << RDF.Statement(translation_activity_uri, DOSSIER['Activiteit.einddatum'], activity_end_date) unless activity_end_date.nil?
     $public_graph << RDF.Statement(translation_activity_uri, PUB.vertalingsactiviteitVanAanvraag, request_activity_uri)
     $public_graph << RDF.Statement(translation_activity_uri, PUB.vertalingVindtPlaatsTijdens, subcase_uri)
     $public_graph << RDF.Statement(translation_activity_uri, DCT.source, DATASOURCE)
@@ -420,17 +420,15 @@ def create_publication_subcase(data)
   targetEndDate = DateTime.strptime(data[:gevraagde_publicatiedatum], '%Y-%m-%dT%H:%M:%S') unless data[:gevraagde_publicatiedatum].empty?
   publicationEndDate = DateTime.strptime(data[:publicatiedatum], '%Y-%m-%dT%H:%M:%S') unless data[:publicatiedatum].empty?
 
-  proofingStartDate = DateTime.strptime(data[:created], '%Y-%m-%dT%H:%M:%S') if proofingStartDate.nil? and not data[:created].empty?
-  proofingEndDate = publicationEndDate if proofingEndDate.nil? and not publicationEndDate.nil?
-
-  publicationStartDate = DateTime.strptime(data[:created], '%Y-%m-%dT%H:%M:%S') if publicationStartDate.nil? and not data[:created].empty?
+  subcase_start_date = DateTime.strptime(data[:created], '%Y-%m-%dT%H:%M:%S') if proofingStartDate.nil? and not data[:created].empty?
+  subcase_end_date = publicationEndDate if proofingEndDate.nil? and not publicationEndDate.nil?
 
   publication_subcase_uuid = generate_uuid()
   subcase_uri = RDF::URI(BASE_URI % { :resource => 'procedurestap', :id => publication_subcase_uuid})
   $public_graph << RDF.Statement(subcase_uri, RDF.type, PUB.PublicatieProcedurestap)
   $public_graph << RDF.Statement(subcase_uri, MU_CORE.uuid, publication_subcase_uuid)
-  $public_graph << RDF.Statement(subcase_uri, DOSSIER['Procedurestap.startdatum'], proofingStartDate) unless proofingStartDate.nil?
-  $public_graph << RDF.Statement(subcase_uri, DOSSIER['Procedurestap.einddatum'], publicationEndDate) unless publicationEndDate.nil?
+  $public_graph << RDF.Statement(subcase_uri, DOSSIER['Procedurestap.startdatum'], subcase_start_date) unless subcase_start_date.nil?
+  $public_graph << RDF.Statement(subcase_uri, DOSSIER['Procedurestap.einddatum'], subcase_end_date) unless subcase_end_date.nil?
   $public_graph << RDF.Statement(subcase_uri, TMO.dueDate, dueDate) unless dueDate.nil?
   $public_graph << RDF.Statement(subcase_uri, TMO.targetEndTime, targetEndDate) unless targetEndDate.nil?
   $public_graph << RDF.Statement(subcase_uri, DCT.source, DATASOURCE)
