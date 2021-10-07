@@ -3,6 +3,9 @@ require_relative 'sinatra_template/utils.rb'
 
 include SinatraTemplate::Utils
 
+MU = RDF::Vocabulary.new('http://mu.semte.ch/vocabularies/')
+MU_CORE = RDF::Vocabulary.new(MU.to_uri.to_s + 'core/')
+
 require_relative 'conversion.rb'
 
 # require_relative './scripts/mandatees_in_access_db.rb'
