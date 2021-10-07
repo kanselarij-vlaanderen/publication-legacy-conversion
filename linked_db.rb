@@ -3,12 +3,7 @@ require 'linkeddata'
 module LinkedDB
 
   def self.initialize
-    options = {}
-    #if ENV['MU_SPARQL_TIMEOUT']
-      options[:read_timeout] = 10_000 # ENV['MU_SPARQL_TIMEOUT'].to_i
-    #end
-    puts options
-    @sparql_client = SinatraTemplate::SPARQL::Client.new(ENV['MU_SPARQL_ENDPOINT'], options)
+    @sparql_client = SinatraTemplate::Utils.sparql_client
   end
   initialize
 
