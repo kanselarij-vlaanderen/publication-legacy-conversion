@@ -25,6 +25,7 @@ DCT = RDF::Vocabulary.new("http://purl.org/dc/terms/")
 TMO = RDF::Vocabulary.new("http://www.semanticdesktop.org/ontologies/2008/05/20/tmo#")
 FABIO = RDF::Vocabulary.new("http://purl.org/spar/fabio/#")
 RDFS = RDF::Vocabulary.new("https://www.w3.org/2000/01/rdf-schema#")
+ELI = RDF::Vocabulary.new("http://data.europa.eu/eli/ontology#")
 
 PUBLICATIEWIJZE_UITTREKSEL = RDF::URI "http://themis.vlaanderen.be/id/concept/publicatie-wijze/bd49553f-39af-4b47-9550-1662e1bde7e6"
 PUBLICATIEWIJZE_EXTENSO = RDF::URI "http://themis.vlaanderen.be/id/concept/publicatie-wijze/5659be06-3361-46b2-a0dd-69b4e6adb7e4"
@@ -43,7 +44,11 @@ KANSELARIJ_GRAPH = "http://mu.semte.ch/graphs/organizations/kanselarij"
 MINISTERS_GRAPH = "http://mu.semte.ch/graphs/ministers"
 
 DATASOURCE = RDF::URI "http://vlaanderen.be/dossier-opvolging-access-db/DOSSIEROPVOLGING-H.xml"
-PUBLISHED_STATUS = RDF::URI "http://themis.vlaanderen.be/id/concept/publicatie-status/2f8dc814-bd91-4bcf-a823-baf1cdc42475"
+
+module Status
+  TO_PUBLISH = RDF::URI "http://themis.vlaanderen.be/id/concept/publicatie-status/fa62e050-3960-440d-bed9-1c3d3e9923a8"
+  PUBLISHED = RDF::URI "http://themis.vlaanderen.be/id/concept/publicatie-status/2f8dc814-bd91-4bcf-a823-baf1cdc42475"
+end
 
 $public_graph = RDF::Graph.new
 
@@ -182,12 +187,11 @@ def process_publicatie(publicatie)
       treatment_uri = create_treatment(dossier_date)
     end
 
-    number_of_pages = aantal_bladzijden if aantal_bladzijden
-
     remark = []
-    remark << "trefwoord: #{trefwoord} " unless trefwoord.empty?
-    remark << "opdrachtgever: #{opdrachtgever} " unless opdrachtgever.empty?
-    remark << "opmerkingen: #{opmerkingen} " unless opmerkingen.empty?
+    remark << "trefwoord: #{trefwoord}" unless trefwoord.empty?
+    remark << "opdrachtgever: #{opdrachtgever}" unless opdrachtgever.empty?
+    remark << "aantal bladzijden: #{aantal_bladzijden}" unless aantal_bladzijden.nil?
+    remark << "opmerkingen: #{opmerkingen}" unless opmerkingen.empty?
     remark = remark.join("\n")
 
     unless wijze_van_publicatie.empty?
@@ -224,6 +228,8 @@ def process_publicatie(publicatie)
 
     $errors << "ERROR: No publication date found for publication #{dossiernummer}." if publicatiedatum.empty?
 
+    publication_status = determine_publication_status(rec)
+
     set_publicationflow(
       publication_uri: publication_uri,
       identification: identification_uri,
@@ -238,9 +244,10 @@ def process_publicatie(publicatie)
       caze: case_uri,
       openingsdatum: openingsdatum,
       treatment: treatment_uri,
-      pages: number_of_pages,
+      pages: aantal_bladzijden,
       document_number: document_nr,
       government_domains: government_domains,
+      publication_status: publication_status,
     )
     log.info "Processing dossiernummer #{dossiernummer} DONE."
 end
@@ -372,6 +379,14 @@ def map_mode(publicatie_wijze)
   mode
 end
 
+def determine_publication_status(rec)
+  if rec.publicatiedatum
+    Status::PUBLISHED
+  else
+    Status::TO_PUBLISH
+  end
+end
+
 def create_translation_subcase(data)
   activity_start_date = DateTime.strptime(data[:vertaling_aangevraagd], '%Y-%m-%dT%H:%M:%S') unless data[:vertaling_aangevraagd].empty?
   activity_end_date = DateTime.strptime(data[:vertaling_ontvangen], '%Y-%m-%dT%H:%M:%S') unless data[:vertaling_ontvangen].empty?
@@ -497,7 +512,6 @@ def create_publicationflow()
   $public_graph << RDF.Statement(publication_uri, RDF.type, PUB.Publicatieaangelegenheid)
   $public_graph << RDF.Statement(publication_uri, MU_CORE.uuid, uuid)
   $public_graph << RDF.Statement(publication_uri, DCT.source, DATASOURCE)
-  $public_graph << RDF.Statement(publication_uri, ADMS.status, PUBLISHED_STATUS)
 
   publication_uri
 end
@@ -532,6 +546,10 @@ def set_publicationflow(data)
 
   # disabled: impossible to determine reference document with current data
   # $public_graph << RDF.Statement(data[:reference_document], FABIO.hasPageCount, data[:pages]) unless (data[:reference_document].nil? or data[:pages].nil?)
+
+  if data[:publication_status]
+    $public_graph << RDF.Statement(publication_uri, ADMS.status, data[:publication_status])
+  end
 end
 
 def validate_result(result, name, optional, exact)
