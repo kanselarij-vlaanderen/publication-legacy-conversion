@@ -1,20 +1,29 @@
 require 'linkeddata'
 
 module LinkedDB
-
   def self.initialize
-    options = {}
-    #if ENV['MU_SPARQL_TIMEOUT']
-      options[:read_timeout] = 10_000 # ENV['MU_SPARQL_TIMEOUT'].to_i
-    #end
-    puts options
-    @sparql_client = SinatraTemplate::SPARQL::Client.new(ENV['MU_SPARQL_ENDPOINT'], options)
+    @sparql_client = SinatraTemplate::Utils.sparql_client
   end
   initialize
 
+  SECONDS = 60
   def self.query(query)
-    #log.info "Executing query: #{query}"
-    @sparql_client.query query
+    max_tries = 5
+    (1..max_tries).each do |try|
+      begin
+        return @sparql_client.query query
+      rescue Net::HTTP::Persistent::Error => x
+        if try === max_tries
+          raise x
+        end
+        time_to_sleep_min = (2 ** (try - 2)) # starts with 1/2 minutes
+        time_to_sleep_sec = time_to_sleep_min * SECONDS
+        log.info "HTTP error: retrying in #{time_to_sleep_min} minutes. Sleeping: zzz..."
+
+        Kernel.sleep time_to_sleep_sec
+      end
+    end
+
   end
 
   def self.sparql_escape_string string

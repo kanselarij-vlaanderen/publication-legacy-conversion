@@ -312,7 +312,7 @@ def query_reference_document(dossiernummer, document_number)
   query += "   }"
   query += " } ORDER BY ?title"
 
-  query(query)
+  LinkedDB::query(query)
 end
 
 def create_case(title)
