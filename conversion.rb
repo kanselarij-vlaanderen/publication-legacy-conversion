@@ -51,7 +51,8 @@ $public_graph = RDF::Graph.new
 
 $errors = Array.new
 
-# publicaties.nil? => all publicaties
+##
+# +publicaties+ publicaties.nil? => all publicaties
 def run(input_dir="/data/input/", output_dir="/data/output/", publicaties = nil)
   log.info "[STARTED] Starting publication legacy conversion"
 
@@ -204,7 +205,7 @@ def process_publicatie(publicatie)
     )
 
     if is_published? rec
-      decision_uri = create_decision(publication_date: publicatiedatum)
+      decision_uri = create_decision(publication_date: rec.publicatiedatum)
     end
 
     publication_subcase = create_publication_subcase(
@@ -216,7 +217,7 @@ def process_publicatie(publicatie)
       naar_BS_voor_publicatie: naar_BS_voor_publicatie,
       limiet_publicatie: limiet_publicatie,
       gevraagde_publicatiedatum: gevraagde_publicatiedatum,
-      publicatiedatum: publicatiedatum
+      publicatiedatum: rec.publicatiedatum
     )
 
     numac_number_uri = create_numac_number(werknummer_BS) unless werknummer_BS.empty?
@@ -433,7 +434,8 @@ def create_publication_subcase(data)
   publicationStartDate = DateTime.strptime(data[:naar_BS_voor_publicatie], '%Y-%m-%dT%H:%M:%S') unless data[:naar_BS_voor_publicatie].empty?
   dueDate = DateTime.strptime(data[:limiet_publicatie], '%Y-%m-%dT%H:%M:%S') unless data[:limiet_publicatie].empty?
   targetEndDate = DateTime.strptime(data[:gevraagde_publicatiedatum], '%Y-%m-%dT%H:%M:%S') unless data[:gevraagde_publicatiedatum].empty?
-  publicationEndDate = DateTime.strptime(data[:publicatiedatum], '%Y-%m-%dT%H:%M:%S') unless data[:publicatiedatum].empty?
+  publicationEndDate = data[:publication_date] unless data[:publicatiedatum].nil?
+  puts data[:publication_date]
 
   subcase_start_date = DateTime.strptime(data[:created], '%Y-%m-%dT%H:%M:%S') if proofingStartDate.nil? and not data[:created].empty?
   subcase_end_date = publicationEndDate if proofingEndDate.nil? and not publicationEndDate.nil?
