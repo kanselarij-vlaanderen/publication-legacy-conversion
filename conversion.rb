@@ -79,10 +79,7 @@ def run(input_dir="/data/input/", output_dir="/data/output/", publicaties = nil)
   log.info "-- Input file : #{legacy_input_file}"
   log.info "-- Output file : #{ttl_output_file}"
 
-  if publicaties.nil?
-    doc = Nokogiri::XML(File.open(legacy_input_file))
-    publicaties = doc.xpath('//Dossieropvolging') if publicaties.nil?
-  end
+  publicaties = AccessDB.nodes if publicaties.nil?
 
   log.info "graph: #{graph}"
 

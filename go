@@ -1,1 +1,1 @@
-MU_SPARQL_ENDPOINT=http://localhost:8890/sparql LOG_LEVEL=DEBUG bundle exec ruby ./go.rb
+MU_SPARQL_ENDPOINT=http://localhost:8890/sparql LOG_LEVEL=DEBUG INPUT_DIR=./data/input/ OUTPUT_DIR=./data/output/ bundle exec ruby ./go.rb

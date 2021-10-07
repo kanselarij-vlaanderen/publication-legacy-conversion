@@ -28,10 +28,10 @@ module AccessDB
   }
 
   def self.initialize
-    input_file = "data/input/legacy_data.xml"
+    input_dir = ENV["INPUT_DIR"] || "/data/input"
+    input_file = File.join(input_dir, "legacy_data.xml")
     @doc = Nokogiri::XML(File.open(input_file)) { |c| c.noblanks }
   end
-
   initialize
 
   def self.by_dossiernummer(dossiernummers)

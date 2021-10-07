@@ -5,7 +5,7 @@ class QueryGovernmentDomains
   )
     @errors = errors
 
-    abbreviations = CSV.read abbreviations_filepath
+    abbreviations = CSV.read abbreviations_filepath, 'rb' # binary: otherwise method assumes ASCII and fails when run inside docker
     
     abbreviation_values = abbreviations.map { |row|
       "(#{row[0].sparql_escape} #{row[1].sparql_escape})"
@@ -35,7 +35,7 @@ class QueryGovernmentDomains
     triples = LinkedDB.query query
     @abbreviations = triples.map { |tri| [tri[:abbreviation].value, tri[:uri]] } .to_h
 
-    SinatraTemplate::Utils.log.error("not found: #{abbreviations.filter { |abbr| !@abbreviations[abbr[0]]}}")
+    SinatraTemplate::Utils.log.error("not found: #{abbreviations.select { |abbr| !@abbreviations[abbr[0]]}}")
   end
 
   def query rec
