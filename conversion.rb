@@ -435,7 +435,6 @@ def create_publication_subcase(data)
   dueDate = DateTime.strptime(data[:limiet_publicatie], '%Y-%m-%dT%H:%M:%S') unless data[:limiet_publicatie].empty?
   targetEndDate = DateTime.strptime(data[:gevraagde_publicatiedatum], '%Y-%m-%dT%H:%M:%S') unless data[:gevraagde_publicatiedatum].empty?
   publicationEndDate = data[:publication_date] unless data[:publicatiedatum].nil?
-  puts data[:publication_date]
 
   subcase_start_date = DateTime.strptime(data[:created], '%Y-%m-%dT%H:%M:%S') if proofingStartDate.nil? and not data[:created].empty?
   subcase_end_date = publicationEndDate if proofingEndDate.nil? and not publicationEndDate.nil?

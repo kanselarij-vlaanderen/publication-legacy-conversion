@@ -76,6 +76,8 @@ module AccessDB
       text = field_node.content
       if field[:type] === :datetime
         DateTime.strptime(text, '%Y-%m-%dT%H:%M:%S')
+      else
+        text
       end
     end
   end
