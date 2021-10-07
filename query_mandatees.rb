@@ -1,6 +1,6 @@
 class QueryMandatees
   def initialize corrections_file_path
-    replacements = CSV.read(corrections_file_path)
+    replacements = CSV.read(corrections_file_path, 'rb') # binary: otherwise method assumes ASCII and fails when run inside docker
     @replacements = replacements.to_h
   end
 

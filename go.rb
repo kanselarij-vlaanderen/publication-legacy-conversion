@@ -12,7 +12,7 @@ require_relative 'conversion.rb'
 # require_relative './scripts/beleidsdomeinen_in_linked_db.rb'
 
 # nodes = AccessDB::nodes[(0...100)]
-# run('./data/input/', './data/output/', nodes)
+# run(ENV["INPUT_DIR"], ENV["OUTPUT_DIR"], nodes)
 
 
 
