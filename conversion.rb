@@ -547,9 +547,7 @@ def set_publicationflow(data)
   # disabled: impossible to determine reference document with current data
   # $public_graph << RDF.Statement(data[:reference_document], FABIO.hasPageCount, data[:pages]) unless (data[:reference_document].nil? or data[:pages].nil?)
 
-  if data[:publication_status]
-    $public_graph << RDF.Statement(publication_uri, ADMS.status, data[:publication_status])
-  end
+  $public_graph << RDF.Statement(publication_uri, ADMS.status, data[:publication_status])
 end
 
 def validate_result(result, name, optional, exact)
