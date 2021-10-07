@@ -3,6 +3,9 @@ require_relative 'sinatra_template/utils.rb'
 
 include SinatraTemplate::Utils
 
+MU = RDF::Vocabulary.new('http://mu.semte.ch/vocabularies/')
+MU_CORE = RDF::Vocabulary.new(MU.to_uri.to_s + 'core/')
+
 require_relative 'conversion.rb'
 
 # require_relative './scripts/mandatees_in_access_db.rb'
@@ -12,7 +15,7 @@ require_relative 'conversion.rb'
 # require_relative './scripts/beleidsdomeinen_in_linked_db.rb'
 
 # nodes = AccessDB::nodes[(0...100)]
-# run('./data/input/', './data/output/', nodes)
+# run(ENV["INPUT_DIR"], ENV["OUTPUT_DIR"], nodes)
 
 
 

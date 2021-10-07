@@ -1,6 +1,6 @@
 class QueryMandatees
   def initialize corrections_file_path
-    replacements = CSV.read(corrections_file_path)
+    replacements = CSV.read corrections_file_path,  'rt', encoding: 'UTF-8' # otherwise Ruby 2.5 assumes ASCII
     @replacements = replacements.to_h
   end
 

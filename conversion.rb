@@ -3,10 +3,6 @@ require 'nokogiri'
 require_relative 'access_db.rb'
 require_relative 'linked_db.rb'
 require_relative 'query_mandatees.rb'
-require_relative 'query_government_domains.rb'
-
-MU = RDF::Vocabulary.new('http://mu.semte.ch/vocabularies/')
-MU_CORE = RDF::Vocabulary.new(MU.to_uri.to_s + 'core/')
 
 BASE_URI = 'http://themis.vlaanderen.be/id/%{resource}/%{id}'
 CONCEPT_URI = 'http://themis.vlaanderen.be/id/concept/%{resource}/%{id}'
@@ -68,16 +64,11 @@ def run(input_dir="/data/input/", output_dir="/data/output/", publicaties = nil)
   
   $query_mandatees = QueryMandatees.new(
     "#{input_dir}mandatees-corrections.csv")
-  $query_government_domains = QueryGovernmentDomains.new($errors_csv,
-    "#{input_dir}government-domains-abbreviations.csv")
 
   log.info "-- Input file : #{legacy_input_file}"
   log.info "-- Output file : #{ttl_output_file}"
 
-  if publicaties.nil?
-    doc = Nokogiri::XML(File.open(legacy_input_file))
-    publicaties = doc.xpath('//Dossieropvolging') if publicaties.nil?
-  end
+  publicaties = AccessDB.nodes if publicaties.nil?
 
   log.info "graph: #{graph}"
 
@@ -196,8 +187,6 @@ def process_publicatie(publicatie)
 
     regelgeving_type = validate(map_regelgeving_type(soort), "map regelgeving type #{dossiernummer}", soort)
 
-    government_domains = $query_government_domains.query(rec)
-
     publication_uri = create_publicationflow()
 
     translation_subcase = create_translation_subcase(
@@ -240,7 +229,6 @@ def process_publicatie(publicatie)
       treatment: treatment_uri,
       pages: number_of_pages,
       document_number: document_nr,
-      government_domains: government_domains,
     )
     log.info "Processing dossiernummer #{dossiernummer} DONE."
 end
@@ -521,10 +509,6 @@ def set_publicationflow(data)
   $public_graph << RDF.Statement(publication_uri, DOSSIER.openingsdatum, open_date) unless open_date.nil?
   $public_graph << RDF.Statement(publication_uri, DCT.subject, data[:treatment]) unless data[:treatment].nil?
   $public_graph << RDF.Statement(publication_uri, EXT.legacyDocumentNumberMSAccess, data[:document_number]) unless data[:document_number].empty?
-
-  data[:government_domains].each do |domain|
-    $public_graph << RDF.Statement(publication_uri, BESLUITVORMING.beleidsveld, domain)
-  end
 
   data[:mandatees].each do |mandatee|
     $public_graph << RDF.Statement(publication_uri, EXT.heeftBevoegdeVoorPublicatie, mandatee)
