@@ -64,7 +64,11 @@ module AccessDB
   end
   
   def field(n, name)
-    field_nodes = n > AccessDB::FIELDS[name]
+    field_tag = AccessDB::FIELDS[name]
+    if !field_tag
+      raise "no field: #{name}"
+    end
+    field_nodes = n > field_tag
     if field_nodes.length === 0
       nil
     else
