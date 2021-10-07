@@ -5,7 +5,7 @@ class QueryGovernmentDomains
   )
     @errors = errors
 
-    abbreviations = CSV.read abbreviations_filepath, 'rb' # binary: otherwise method assumes ASCII and fails when run inside docker
+    abbreviations = CSV.read abbreviations_filepath,  'rt', encoding: 'UTF-8' # otherwise Ruby 2.5 assumes ASCII
     
     abbreviation_values = abbreviations.map { |row|
       "(#{row[0].sparql_escape} #{row[1].sparql_escape})"
