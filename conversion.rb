@@ -10,6 +10,7 @@ CONCEPT_URI = 'http://themis.vlaanderen.be/id/concept/%{resource}/%{id}'
 FOAF = RDF::Vocab::FOAF
 ADMS = RDF::Vocabulary.new("http://www.w3.org/ns/adms#")
 SKOS = RDF::Vocabulary.new("http://www.w3.org/2004/02/skos/core#")
+PROV = RDF::Vocabulary.new("http://www.w3.org/ns/prov#")
 GENERIEK = RDF::Vocabulary.new("https://data.vlaanderen.be/ns/generiek#")
 PUB = RDF::Vocabulary.new("http://mu.semte.ch/vocabularies/ext/publicatie/")
 MANDAAT = RDF::Vocabulary.new("http://data.vlaanderen.be/ns/mandaat#")
@@ -202,8 +203,13 @@ def process_publicatie(publicatie)
       limiet_vertaling: limiet_vertaling
     )
 
+    if is_published? rec
+      decision_uri = create_decision(publication_date: publicatiedatum)
+    end
+
     publication_subcase = create_publication_subcase(
       publication_uri: publication_uri,
+      decision_uri: decision_uri,
       created: dossier_date,
       drukproef_aangevraagd: drukproef_aangevraagd,
       drukproef_ontvangen: drukproef_ontvangen,
@@ -222,6 +228,7 @@ def process_publicatie(publicatie)
     set_publicationflow(
       publication_uri: publication_uri,
       identification: identification_uri,
+      decision_uri: decision_uri,
       short_title: opschrift,
       regulation_type: regelgeving_type,
       mandatees: mandatee_uris,
@@ -367,8 +374,12 @@ def map_mode(publicatie_wijze)
   mode
 end
 
+def is_published? rec
+  return rec.publicatiedatum
+end
+
 def determine_publication_status(rec)
-  if rec.publicatiedatum
+  if is_published? rec
     Status::PUBLISHED
   else
     Status::TO_PUBLISH
@@ -476,6 +487,7 @@ def create_publication_subcase(data)
     $public_graph << RDF.Statement(publication_activity_uri, DOSSIER['Activiteit.einddatum'], publicationEndDate) unless publicationEndDate.nil?
     $public_graph << RDF.Statement(publication_activity_uri, PUB.publicatieactiviteitVanAanvraag, publication_request_activity_uri)
     $public_graph << RDF.Statement(publication_activity_uri, PUB.publicatieVindtPlaatsTijdens, subcase_uri)
+    $public_graph << RDF.Statement(publication_activity_uri, PROV.generated, data[:decision_uri]) if data[:decision_uri]
     $public_graph << RDF.Statement(publication_activity_uri, DCT.source, DATASOURCE)
   end
 
@@ -492,6 +504,15 @@ def create_numac_number(werknummer_BS)
   $public_graph << RDF.Statement(numac_uri, DCT.source, DATASOURCE)
 
   numac_uri
+end
+
+def create_decision data
+  uuid = generate_uuid
+  decision_uri = RDF::URI(BASE_URI % { resource: 'besluit', id: uuid })
+  $public_graph << RDF.Statement(decision_uri, RDF.type, ELI.LegalResource)
+  $public_graph << RDF.Statement(decision_uri, MU_CORE.uuid, uuid)
+  $public_graph << RDF.Statement(decision_uri, ELI['date_publication'], data[:publication_date]) # vocabulary['string'] syntax: RDF library replaces underscore by camelcasing
+  return decision_uri
 end
 
 def create_publicationflow()
