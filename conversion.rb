@@ -4,9 +4,6 @@ require_relative 'access_db.rb'
 require_relative 'linked_db.rb'
 require_relative 'query_mandatees.rb'
 
-MU = RDF::Vocabulary.new('http://mu.semte.ch/vocabularies/')
-MU_CORE = RDF::Vocabulary.new(MU.to_uri.to_s + 'core/')
-
 BASE_URI = 'http://themis.vlaanderen.be/id/%{resource}/%{id}'
 CONCEPT_URI = 'http://themis.vlaanderen.be/id/concept/%{resource}/%{id}'
 
