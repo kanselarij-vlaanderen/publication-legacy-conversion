@@ -2,29 +2,29 @@ module AccessDB
   extend self
 
   FIELDS = {
-    dossiernummer: 'dossiernummer',
-    opschrift: 'opschrift',
-    soort: 'soort',
-    datum: 'datum',
-    trefwoord: 'trefwoord',
-    bevoegde_ministers: 'bevoegde_x0020_minister_x0028_s_x0029_',
-    document_nr: 'document_x0020_nr',
-    aantal_bladzijden: 'aantal_x0020_blz',
-    opdrachtgever: 'opdrachtgever',
-    opdracht_formeel_ontvangen: 'opdracht_x0020_formeel_x0020_ontvangen',
-    wijze_van_publicatie: 'wijze_x0020_van_x0020_publicatie',
-    vertaling_aangevraagd: 'vertaling_x0020_aangevraagd',
-    limiet_vertaling: 'limiet_x0020_vertaling',
-    vertaling_ontvangen: 'vertaling_x0020_ontvangen',
-    drukproef_aangevraagd: 'drukproef_x0020_aangevraagd',
-    drukproef_ontvangen: 'drukproef_x0020_ontvangen',
-    naar_BS_voor_publicatie: 'naar_x0020_BS_x0020_voor_x0020_publicatie',
-    limiet_publicatie: 'limiet_x0020_publicatie',
-    gevraagde_publicatiedatum: 'gevraagde_x0020_publicatiedatum',
-    publicatiedatum: 'PUBLICATIEDATUM',
-    opmerkingen: 'opmerkingen',
-    werknummer_BS: 'werknummer_x0020_BS',
-    beleidsdomein: 'beleidsdomein'
+    dossiernummer: { tag: 'dossiernummer' },
+    opschrift: { tag:  'opschrift' },
+    soort: { tag: 'soort' },
+    datum: { tag: 'datum', type: :datetime } ,
+    trefwoord: { tag: 'trefwoord' },
+    bevoegde_ministers: { tag: 'bevoegde_x0020_minister_x0028_s_x0029_' },
+    document_nr: { tag: 'document_x0020_nr' },
+    aantal_bladzijden: { tag: 'aantal_x0020_blz' },
+    opdrachtgever: { tag: 'opdrachtgever' },
+    opdracht_formeel_ontvangen: { tag: 'opdracht_x0020_formeel_x0020_ontvangen', type: :datetime },
+    wijze_van_publicatie: { tag: 'wijze_x0020_van_x0020_publicatie', type: :datetime },
+    vertaling_aangevraagd: { tag: 'vertaling_x0020_aangevraagd', type: :datetime } ,
+    limiet_vertaling: { tag: 'limiet_x0020_vertaling', type: :datetime } ,
+    vertaling_ontvangen: { tag: 'vertaling_x0020_ontvangen', type: :datetime } ,
+    drukproef_aangevraagd: { tag: 'drukproef_x0020_aangevraagd', type: :datetime } ,
+    drukproef_ontvangen: { tag: 'drukproef_x0020_ontvangen', type: :datetime } ,
+    naar_BS_voor_publicatie: { tag: 'naar_x0020_BS_x0020_voor_x0020_publicatie', type: :datetime } ,
+    limiet_publicatie: { tag: 'limiet_x0020_publicatie', type: :datetime } ,
+    gevraagde_publicatiedatum: { tag: 'gevraagde_x0020_publicatiedatum', type: :datetime } ,
+    publicatiedatum: { tag: 'PUBLICATIEDATUM', type: :datetime },
+    opmerkingen: { tag: 'opmerkingen' },
+    werknummer_BS: { tag: 'werknummer_x0020_BS' },
+    beleidsdomein: { tag: 'beleidsdomein' }
   }
 
   def self.initialize
@@ -64,12 +64,21 @@ module AccessDB
   end
   
   def field(n, name)
-    field_nodes = n > AccessDB::FIELDS[name]
+    field = AccessDB::FIELDS[name]
+    if !field
+      raise "no field: #{name}"
+    end
+    field_nodes = n > field[:tag]
     if field_nodes.length === 0
       nil
     else
       field_node = field_nodes[0]
-      field_node.content
+      text = field_node.content
+      if field[:type] === :datetime
+        DateTime.strptime(text, '%Y-%m-%dT%H:%M:%S')
+      else
+        text
+      end
     end
   end
 
