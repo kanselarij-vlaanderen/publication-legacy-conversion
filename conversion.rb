@@ -225,6 +225,9 @@ def process_publicatie(publicatie)
     $errors << "ERROR: No publication date found for publication #{dossiernummer}." if publicatiedatum.empty?
 
     publication_status = determine_publication_status(rec)
+    publication_status_change = create_publication_status_change(
+      :start_time: start_time
+    )
 
     set_publicationflow(
       publication_uri: publication_uri,
@@ -507,13 +510,21 @@ def create_numac_number(werknummer_BS)
   numac_uri
 end
 
+def create_publication_status_change data
+  uuid = generate_uuid()
+  uri = RDF::URI(BASE_URI % { :resource => 'identificator', :id => uuid})
+  $public_graph << RDF.Statement(uri, RDF.type, PUB.PublicatieStatusWijziging)
+  $public_graph << RDF.Statement(uri, PROV.startedAtTime, data[:start_time])
+  return uri
+end
+
 def create_decision data
   uuid = generate_uuid
-  decision_uri = RDF::URI(BASE_URI % { resource: 'besluit', id: uuid })
-  $public_graph << RDF.Statement(decision_uri, RDF.type, ELI.LegalResource)
-  $public_graph << RDF.Statement(decision_uri, MU_CORE.uuid, uuid)
-  $public_graph << RDF.Statement(decision_uri, ELI['date_publication'], data[:publication_date]) # vocabulary['string'] syntax: RDF library replaces underscore by camelcasing
-  return decision_uri
+  uri = RDF::URI(BASE_URI % { resource: 'besluit', id: uuid })
+  $public_graph << RDF.Statement(uri, RDF.type, ELI.LegalResource)
+  $public_graph << RDF.Statement(uri, MU_CORE.uuid, uuid)
+  $public_graph << RDF.Statement(uri, ELI['date_publication'], data[:publication_date]) # vocabulary['string'] syntax: RDF library replaces underscore by camelcasing
+  return uri
 end
 
 def create_publicationflow()
