@@ -21,7 +21,6 @@ DCT = RDF::Vocabulary.new("http://purl.org/dc/terms/")
 TMO = RDF::Vocabulary.new("http://www.semanticdesktop.org/ontologies/2008/05/20/tmo#")
 FABIO = RDF::Vocabulary.new("http://purl.org/spar/fabio/#")
 RDFS = RDF::Vocabulary.new("https://www.w3.org/2000/01/rdf-schema#")
-ELI = RDF::Vocabulary.new("http://data.europa.eu/eli/ontology#")
 
 PUBLICATIEWIJZE_UITTREKSEL = RDF::URI "http://themis.vlaanderen.be/id/concept/publicatie-wijze/bd49553f-39af-4b47-9550-1662e1bde7e6"
 PUBLICATIEWIJZE_EXTENSO = RDF::URI "http://themis.vlaanderen.be/id/concept/publicatie-wijze/5659be06-3361-46b2-a0dd-69b4e6adb7e4"
@@ -50,10 +49,11 @@ $public_graph = RDF::Graph.new
 
 $errors = Array.new
 
-# publicaties.nil? => all publicaties
+##
+# +publicaties+ publicaties.nil? => all publicaties
 def run(input_dir="/data/input/", output_dir="/data/output/", publicaties = nil)
   log.info "[STARTED] Starting publication legacy conversion"
-
+  
   legacy_input_file_name = "legacy_data.xml"
   legacy_input_file = "#{input_dir}#{legacy_input_file_name}"
 
@@ -181,7 +181,7 @@ def process_publicatie(publicatie)
     remark = []
     remark << "trefwoord: #{trefwoord}" unless trefwoord.empty?
     remark << "opdrachtgever: #{opdrachtgever}" unless opdrachtgever.empty?
-    remark << "aantal bladzijden: #{aantal_bladzijden}" unless aantal_bladzijden.nil?
+    remark << "aantal bladzijden: #{aantal_bladzijden}" unless aantal_bladzijden.empty?
     remark << "opmerkingen: #{opmerkingen}" unless opmerkingen.empty?
     remark = remark.join("\n")
 
