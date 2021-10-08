@@ -470,7 +470,7 @@ def create_publication_subcase(data)
 
     publication_activity_uuid = generate_uuid()
     publication_activity_uri = RDF::URI(CONCEPT_URI % { :resource => 'publicatie-activiteit', :id => publication_activity_uuid})
-    $public_graph << RDF.Statement(publication_activity_uri, RDF.type, PUB.DrukproefActiviteit)
+    $public_graph << RDF.Statement(publication_activity_uri, RDF.type, PUB.PublicatieActiviteit)
     $public_graph << RDF.Statement(publication_activity_uri, MU_CORE.uuid, publication_activity_uuid)
     $public_graph << RDF.Statement(publication_activity_uri, DOSSIER['Activiteit.startdatum'], publicationStartDate) unless publicationStartDate.nil?
     $public_graph << RDF.Statement(publication_activity_uri, DOSSIER['Activiteit.einddatum'], publicationEndDate) unless publicationEndDate.nil?
