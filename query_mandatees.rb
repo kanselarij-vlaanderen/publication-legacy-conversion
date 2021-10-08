@@ -10,7 +10,6 @@ class QueryMandatees
     return [] if bevoegde_ministers.nil?
   
     dossier_date = rec.datum || rec.opdracht_formeel_ontvangen
-    dossier_date = DateTime.strptime(dossier_date, '%Y-%m-%dT%H:%M:%S')
     dossier_date_escaped = dossier_date.sparql_escape
   
     if bevoegde_ministers === "allen"
