@@ -40,10 +40,8 @@ MINISTERS_GRAPH = "http://mu.semte.ch/graphs/ministers"
 
 DATASOURCE = RDF::URI "http://vlaanderen.be/dossier-opvolging-access-db/DOSSIEROPVOLGING-H.xml"
 
-module Status
-  TO_PUBLISH = RDF::URI "http://themis.vlaanderen.be/id/concept/publicatie-status/fa62e050-3960-440d-bed9-1c3d3e9923a8"
-  PUBLISHED = RDF::URI "http://themis.vlaanderen.be/id/concept/publicatie-status/2f8dc814-bd91-4bcf-a823-baf1cdc42475"
-end
+PUBLICATIE_STATUS_TE_PUBLICEREN = RDF::URI "http://themis.vlaanderen.be/id/concept/publicatie-status/fa62e050-3960-440d-bed9-1c3d3e9923a8"
+PUBLICATIE_STATUS_GEPUBLICEERD = RDF::URI "http://themis.vlaanderen.be/id/concept/publicatie-status/2f8dc814-bd91-4bcf-a823-baf1cdc42475"
 
 $public_graph = RDF::Graph.new
 
@@ -363,9 +361,9 @@ end
 
 def determine_publication_status(rec)
   if rec.publicatiedatum
-    Status::PUBLISHED
+    PUBLICATIE_STATUS_GEPUBLICEERD
   else
-    Status::TO_PUBLISH
+    PUBLICATIE_STATUS_TE_PUBLICEREN
   end
 end
 
