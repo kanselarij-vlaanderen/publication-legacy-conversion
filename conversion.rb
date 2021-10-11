@@ -195,6 +195,8 @@ def process_publicatie(publicatie)
 
     publication_uri = create_publicationflow()
 
+    publication_status = get_publication_status(rec)
+
     translation_subcase = create_translation_subcase(
       rec,
       publication_uri: publication_uri,
@@ -203,14 +205,16 @@ def process_publicatie(publicatie)
     publication_subcase = create_publication_subcase(
       rec,
       publication_uri: publication_uri,
+      publication_status: publication_status,
     )
 
     numac_number_uri = create_numac_number(werknummer_BS) unless werknummer_BS.empty?
 
     $errors << "ERROR: No publication date found for publication #{dossiernummer}." if publicatiedatum.empty?
 
+    closing_date = rec.publicatiedatum
+
     set_publicationflow(
-      rec,
       publication_uri: publication_uri,
       identification: identification_uri,
       short_title: opschrift,
@@ -223,6 +227,8 @@ def process_publicatie(publicatie)
       remark: remark,
       caze: case_uri,
       openingsdatum: openingsdatum,
+      closing_date: closing_date,
+      publication_status: publication_status,
       treatment: treatment_uri,
       pages: aantal_bladzijden,
       document_number: document_nr,
@@ -471,8 +477,8 @@ def create_publication_subcase(rec, data)
     $public_graph << RDF.Statement(publication_activity_uri, PUB.publicatieactiviteitVanAanvraag, publication_request_activity_uri)
     $public_graph << RDF.Statement(publication_activity_uri, PUB.publicatieVindtPlaatsTijdens, subcase_uri)
 
-    if get_publication_status(rec) === Status::PUBLISHED
-      decision_uri = create_decision rec
+    if data[:publication_status] === Status::PUBLISHED
+      decision_uri = create_decision publication_date: publicationEndDate
       $public_graph << RDF.Statement(publication_activity_uri, PROV.generated, decision_uri)
     end
 
@@ -494,12 +500,12 @@ def create_numac_number(werknummer_BS)
   numac_uri
 end
 
-def create_decision rec
+def create_decision data
   uuid = generate_uuid
   uri = RDF::URI(BASE_URI % { resource: 'besluit', id: uuid })
   $public_graph << RDF.Statement(uri, RDF.type, ELI.LegalResource)
   $public_graph << RDF.Statement(uri, MU_CORE.uuid, uuid)
-  $public_graph << RDF.Statement(uri, ELI['date_publication'], rec.publicatiedatum) # VOC['predicate'] syntax: RDF library replaces underscore by camelcasing
+  $public_graph << RDF.Statement(uri, ELI['date_publication'], data[:publication_date]) # VOC['predicate'] syntax: RDF library replaces underscore by camelcasing
   return uri
 end
 
@@ -513,13 +519,11 @@ def create_publicationflow()
   publication_uri
 end
 
-def set_publicationflow(rec, data)
+def set_publicationflow(data)
   publication_uri = data[:publication_uri]
 
   creation_date = DateTime.strptime(data[:created], '%Y-%m-%dT%H:%M:%S') unless data[:created].empty?
   open_date = DateTime.strptime(data[:openingsdatum], '%Y-%m-%dT%H:%M:%S') unless data[:openingsdatum].empty?
-  closing_date = rec.publicatiedatum
-  publication_status = get_publication_status(rec)
 
   $public_graph << RDF.Statement(publication_uri, ADMS.identifier, data[:identification]) unless data[:identification].nil?
   $public_graph << RDF.Statement(publication_uri, DCT.alternative, data[:short_title]) unless data[:short_title].nil?
@@ -534,7 +538,7 @@ def set_publicationflow(rec, data)
   $public_graph << RDF.Statement(publication_uri, DOSSIER.openingsdatum, open_date) unless open_date.nil?
   $public_graph << RDF.Statement(publication_uri, DCT.subject, data[:treatment]) unless data[:treatment].nil?
   $public_graph << RDF.Statement(publication_uri, EXT.legacyDocumentNumberMSAccess, data[:document_number]) unless data[:document_number].empty?
-  $public_graph << RDF.Statement(publication_uri, DOSSIER.sluitingsdatum, closing_date) if closing_date
+  $public_graph << RDF.Statement(publication_uri, DOSSIER.sluitingsdatum, data[:closing_date]) if data[:closing_date]
 
   data[:mandatees].each do |mandatee|
     $public_graph << RDF.Statement(publication_uri, EXT.heeftBevoegdeVoorPublicatie, mandatee)
@@ -543,7 +547,7 @@ def set_publicationflow(rec, data)
   # disabled: impossible to determine reference document with current data
   # $public_graph << RDF.Statement(data[:reference_document], FABIO.hasPageCount, data[:pages]) unless (data[:reference_document].nil? or data[:pages].nil?)
 
-  $public_graph << RDF.Statement(publication_uri, ADMS.status, publication_status)
+  $public_graph << RDF.Statement(publication_uri, ADMS.status, data[:publication_status])
 end
 
 def validate_result(result, name, optional, exact)
