@@ -143,8 +143,8 @@ def process_publicatie(publicatie)
       return
     end
 
-    dossier_date = get_dossier_date
-    if dossier_date.empty?
+    dossier_datetime = datum.empty? ? opdracht_formeel_ontvangen : datum
+    if dossier_datetime.empty?
       error = "ERROR: No date found for publication #{dossiernummer}"
       if not error.nil?
         log.info error
@@ -153,7 +153,7 @@ def process_publicatie(publicatie)
       return
     end
 
-    openingsdatum = get_opening_time
+    opening_datetime = opdracht_formeel_ontvangen.empty? ? datum : opdracht_formeel_ontvangen
 
     identification_uri = create_identification(dossiernummer)
 
@@ -177,7 +177,7 @@ def process_publicatie(publicatie)
 
     if reference_document_uri.nil?
       case_uri = create_case(opschrift)
-      treatment_uri = create_treatment(dossier_date)
+      treatment_uri = create_treatment(dossier_datetime)
     end
 
     remark = []
@@ -188,7 +188,7 @@ def process_publicatie(publicatie)
     remark = remark.join("\n")
 
     unless wijze_van_publicatie.empty?
-      mode = validate(map_mode(wijze_van_publicatie), "map mode #{dossiernummer} #{dossier_date}", wijze_van_publicatie)
+      mode = validate(map_mode(wijze_van_publicatie), "map mode #{dossiernummer} #{dossier_datetime}", wijze_van_publicatie)
     end
 
     regelgeving_type = validate(map_regelgeving_type(soort), "map regelgeving type #{dossiernummer}", soort)
@@ -212,11 +212,10 @@ def process_publicatie(publicatie)
 
     $errors << "ERROR: No publication date found for publication #{dossiernummer}." if publicatiedatum.empty?
 
-    closing_date = rec.publicatiedatum
-    opening_date = openingsdatum
+    closing_datetime = rec.publicatiedatum
 
-    puts "open ", closing_date, closing_date.to_date
-    puts "close", opening_date, opening_date.to_date
+    puts "open ", closing_datetime, closing_datetime.to_date
+    puts "close", opening_datetime, opening_datetime.to_date
 
     set_publicationflow(
       publication_uri: publication_uri,
@@ -225,9 +224,9 @@ def process_publicatie(publicatie)
       regulation_type: regelgeving_type,
       mandatees: mandatee_uris,
       reference_document: reference_document_uri,
-      creation_time: dossier_date,
-      opening_date: opening_date.to_date,
-      closing_date: closing_date.to_date,
+      creation_time: dossier_datetime,
+      opening_date: opening_datetime.to_date,
+      closing_date: closing_datetime.to_date,
       mode: mode,
       numac_number: numac_number_uri,
       remark: remark,
@@ -240,11 +239,12 @@ def process_publicatie(publicatie)
     log.info "Processing dossiernummer #{dossiernummer} DONE."
 end
 
-def get_dossier_date rec
-  dossier_date = rec.datum || rec.opdracht_formeel_ontvangen
+def get_dossier_datetime rec
+  rec.datum || rec.opdracht_formeel_ontvangen
 end
 
-def get_opening_time rec
+def get_opening_datetime rec
+  rec.opdracht_formeel_ontvangen || rec.datum
 end
 
 def create_identification(dossiernummer)
@@ -387,7 +387,7 @@ def create_translation_subcase(rec, data)
   activity_end_date = rec.vertaling_ontvangen
   due_date = rec.limiet_vertaling
 
-  subcase_start_date = rec.vertaling_aangevraagd || dossier_date(rec)
+  subcase_start_date = rec.vertaling_aangevraagd || get_dossier_datetime(rec)
   subcase_end_date = activity_end_date || rec.publicatiedatum
 
   uuid = generate_uuid()
@@ -431,7 +431,7 @@ def create_publication_subcase(rec, data)
   targetEndDate = rec.gevraagde_publicatiedatum
   publicationEndDate = rec.publicatiedatum
 
-  subcase_start_date = proofingStartDate || dossier_date(rec)
+  subcase_start_date = proofingStartDate || get_dossier_datetime(rec)
   subcase_end_date = publicationEndDate
 
   publication_subcase_uuid = generate_uuid()
