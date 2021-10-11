@@ -1,5 +1,5 @@
 def sparql_escape_string string
-  '"' + string.gsub(/[\\"']/) { |s| '\\' + s }.gsub(/\n/, '\n') + '"'
+  '"""' + string.gsub(/[\\"']/) { |s| '\\' + s } + '"""'
 end
 
 query_mandatees = QueryMandatees.new './data/input/mandatees-corrections.csv'
