@@ -143,7 +143,7 @@ def process_publicatie(publicatie)
       return
     end
 
-    dossier_date = datum.empty? ? opdracht_formeel_ontvangen : datum
+    dossier_date = get_dossier_date
     if dossier_date.empty?
       error = "ERROR: No date found for publication #{dossiernummer}"
       if not error.nil?
@@ -153,7 +153,7 @@ def process_publicatie(publicatie)
       return
     end
 
-    openingsdatum = opdracht_formeel_ontvangen.empty? ? datum : opdracht_formeel_ontvangen
+    openingsdatum = get_opening_time
 
     identification_uri = create_identification(dossiernummer)
 
@@ -213,6 +213,10 @@ def process_publicatie(publicatie)
     $errors << "ERROR: No publication date found for publication #{dossiernummer}." if publicatiedatum.empty?
 
     closing_date = rec.publicatiedatum
+    opening_date = openingsdatum
+
+    puts "open ", closing_date, closing_date.to_date
+    puts "close", opening_date, opening_date.to_date
 
     set_publicationflow(
       publication_uri: publication_uri,
@@ -221,13 +225,13 @@ def process_publicatie(publicatie)
       regulation_type: regelgeving_type,
       mandatees: mandatee_uris,
       reference_document: reference_document_uri,
-      created: dossier_date,
+      creation_time: dossier_date,
+      opening_date: opening_date.to_date,
+      closing_date: closing_date.to_date,
       mode: mode,
       numac_number: numac_number_uri,
       remark: remark,
       caze: case_uri,
-      openingsdatum: openingsdatum,
-      closing_date: closing_date,
       publication_status: publication_status,
       treatment: treatment_uri,
       pages: aantal_bladzijden,
@@ -236,8 +240,11 @@ def process_publicatie(publicatie)
     log.info "Processing dossiernummer #{dossiernummer} DONE."
 end
 
-def dossier_date rec
+def get_dossier_date rec
   dossier_date = rec.datum || rec.opdracht_formeel_ontvangen
+end
+
+def get_opening_time rec
 end
 
 def create_identification(dossiernummer)
@@ -522,20 +529,17 @@ end
 def set_publicationflow(data)
   publication_uri = data[:publication_uri]
 
-  creation_date = DateTime.strptime(data[:created], '%Y-%m-%dT%H:%M:%S') unless data[:created].empty?
-  open_date = DateTime.strptime(data[:openingsdatum], '%Y-%m-%dT%H:%M:%S') unless data[:openingsdatum].empty?
-
   $public_graph << RDF.Statement(publication_uri, ADMS.identifier, data[:identification]) unless data[:identification].nil?
   $public_graph << RDF.Statement(publication_uri, DCT.alternative, data[:short_title]) unless data[:short_title].nil?
   $public_graph << RDF.Statement(publication_uri, PUB.regelgevingType, data[:regulation_type]) unless data[:regulation_type].nil?
   # disabled: impossible to determine reference document with current data
   # $public_graph << RDF.Statement(publication_uri, PUB.referentieDocument, data[:reference_document]) unless data[:reference_document].nil?
-  $public_graph << RDF.Statement(publication_uri, DCT.created, creation_date) unless creation_date.nil?
+  $public_graph << RDF.Statement(publication_uri, DCT.created, data[:creation_time]) if data[:creation_time]
   $public_graph << RDF.Statement(publication_uri, PUB.publicatieWijze, data[:mode]) unless data[:mode].nil?
   $public_graph << RDF.Statement(publication_uri, PUB.identifier, data[:numac_number]) unless data[:numac_number].nil?
   $public_graph << RDF.Statement(publication_uri, RDFS.comment, data[:remark]) unless data[:remark].nil?
   $public_graph << RDF.Statement(publication_uri, DOSSIER.behandelt, data[:caze]) unless data[:caze].nil?
-  $public_graph << RDF.Statement(publication_uri, DOSSIER.openingsdatum, open_date) unless open_date.nil?
+  $public_graph << RDF.Statement(publication_uri, DOSSIER.openingsdatum, data[:opening_date]) if data[:opening_date]
   $public_graph << RDF.Statement(publication_uri, DCT.subject, data[:treatment]) unless data[:treatment].nil?
   $public_graph << RDF.Statement(publication_uri, EXT.legacyDocumentNumberMSAccess, data[:document_number]) unless data[:document_number].empty?
   $public_graph << RDF.Statement(publication_uri, DOSSIER.sluitingsdatum, data[:closing_date]) if data[:closing_date]
