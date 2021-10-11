@@ -261,11 +261,13 @@ end
 def query_reference_document(dossiernummer, document_number)
   # reformatting document number from e.g. from 'VR/96/09.07/0547' to VR 1996 0907 DOC.0547 /
 
-  titleParts = document_number.match('VR/(?<year>\d{2})/(?<day>[0-9]{2})\.(?<month>[0-9]{2})/(?<number>\d{4})')
+  pattern = 'VR/(?<year>\d{2})/(?<day>[0-9]{2})\.(?<month>[0-9]{2})(med|doc|dec)?[/\.-]? ?(?<number>\d{4})'
+  regexp = Regexp.new pattern, true
+  titleParts = document_number.match(regexp)
 
   if titleParts.nil?
     error = "Error parsing document number '#{document_number} for publication #{dossiernummer}"
-    $errors_csv << [dossiernummer, document_number]
+    $errors_csv << [dossiernummer, 'reference-document', 'could-not-parse', document_number]
     if not error.nil?
       log.info error
       $errors << error
@@ -294,7 +296,9 @@ def query_reference_document(dossiernummer, document_number)
   query += "   }"
   query += " } ORDER BY ?title"
 
-  query(query)
+  document_results = LinkedDB.query(query)
+  document_results.select { |r| r[:caseUri] }.uniq!
+  document_results.select { |r| r[:treatmentUri] }.uniq!
 end
 
 def create_case(title)
