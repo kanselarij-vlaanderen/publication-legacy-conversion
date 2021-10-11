@@ -22,7 +22,6 @@ DCT = RDF::Vocabulary.new("http://purl.org/dc/terms/")
 TMO = RDF::Vocabulary.new("http://www.semanticdesktop.org/ontologies/2008/05/20/tmo#")
 FABIO = RDF::Vocabulary.new("http://purl.org/spar/fabio/#")
 RDFS = RDF::Vocabulary.new("https://www.w3.org/2000/01/rdf-schema#")
-ELI = RDF::Vocabulary.new("http://data.europa.eu/eli/ontology#")
 
 PUBLICATIEWIJZE_UITTREKSEL = RDF::URI "http://themis.vlaanderen.be/id/concept/publicatie-wijze/bd49553f-39af-4b47-9550-1662e1bde7e6"
 PUBLICATIEWIJZE_EXTENSO = RDF::URI "http://themis.vlaanderen.be/id/concept/publicatie-wijze/5659be06-3361-46b2-a0dd-69b4e6adb7e4"
@@ -42,18 +41,15 @@ MINISTERS_GRAPH = "http://mu.semte.ch/graphs/ministers"
 
 DATASOURCE = RDF::URI "http://vlaanderen.be/dossier-opvolging-access-db/DOSSIEROPVOLGING-H.xml"
 
-module Status
-  TO_PUBLISH = RDF::URI "http://themis.vlaanderen.be/id/concept/publicatie-status/fa62e050-3960-440d-bed9-1c3d3e9923a8"
-  PUBLISHED = RDF::URI "http://themis.vlaanderen.be/id/concept/publicatie-status/2f8dc814-bd91-4bcf-a823-baf1cdc42475"
-end
+PUBLICATIE_STATUS_TE_PUBLICEREN = RDF::URI "http://themis.vlaanderen.be/id/concept/publicatie-status/fa62e050-3960-440d-bed9-1c3d3e9923a8"
+PUBLICATIE_STATUS_GEPUBLICEERD = RDF::URI "http://themis.vlaanderen.be/id/concept/publicatie-status/2f8dc814-bd91-4bcf-a823-baf1cdc42475"
 
 $public_graph = RDF::Graph.new
 
 $errors = Array.new
 
-##
-# +publicaties+ publicaties.nil? => all publicaties
 def run(input_dir="/data/input/", output_dir="/data/output/", publicaties = nil)
+  # By default, gets all publications from the access db. If "publicaties" is specified, only runs for those specific ones.
   log.info "[STARTED] Starting publication legacy conversion"
 
   legacy_input_file_name = "legacy_data.xml"
@@ -311,7 +307,7 @@ def query_reference_document(dossiernummer, document_number)
   query += "   }"
   query += " } ORDER BY ?title"
 
-  query(query)
+  LinkedDB::query(query)
 end
 
 def create_case(title)
@@ -372,9 +368,9 @@ end
 
 def get_publication_status(rec)
   if rec.publicatiedatum
-    Status::PUBLISHED
+    PUBLICATIE_STATUS_GEPUBLICEERD
   else
-    Status::TO_PUBLISH
+    PUBLICATIE_STATUS_TE_PUBLICEREN
   end
 end
 
