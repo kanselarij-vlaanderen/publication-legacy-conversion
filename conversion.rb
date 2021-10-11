@@ -39,14 +39,16 @@ KANSELARIJ_GRAPH = "http://mu.semte.ch/graphs/organizations/kanselarij"
 MINISTERS_GRAPH = "http://mu.semte.ch/graphs/ministers"
 
 DATASOURCE = RDF::URI "http://vlaanderen.be/dossier-opvolging-access-db/DOSSIEROPVOLGING-H.xml"
-PUBLISHED_STATUS = RDF::URI "http://themis.vlaanderen.be/id/concept/publicatie-status/2f8dc814-bd91-4bcf-a823-baf1cdc42475"
+
+PUBLICATIE_STATUS_TE_PUBLICEREN = RDF::URI "http://themis.vlaanderen.be/id/concept/publicatie-status/fa62e050-3960-440d-bed9-1c3d3e9923a8"
+PUBLICATIE_STATUS_GEPUBLICEERD = RDF::URI "http://themis.vlaanderen.be/id/concept/publicatie-status/2f8dc814-bd91-4bcf-a823-baf1cdc42475"
 
 $public_graph = RDF::Graph.new
 
 $errors = Array.new
 
-# publicaties.nil? => all publicaties
 def run(input_dir="/data/input/", output_dir="/data/output/", publicaties = nil)
+  # By default, gets all publications from the access db. If "publicaties" is specified, only runs for those specific ones.
   log.info "[STARTED] Starting publication legacy conversion"
 
   legacy_input_file_name = "legacy_data.xml"
@@ -173,11 +175,10 @@ def process_publicatie(publicatie)
       treatment_uri = create_treatment(dossier_date)
     end
 
-    number_of_pages = aantal_bladzijden if aantal_bladzijden
-
     remark = []
     remark << "trefwoord: #{trefwoord}" unless trefwoord.empty?
     remark << "opdrachtgever: #{opdrachtgever}" unless opdrachtgever.empty?
+    remark << "aantal bladzijden: #{aantal_bladzijden}" unless aantal_bladzijden.empty?
     remark << "opmerkingen: #{opmerkingen}" unless opmerkingen.empty?
     remark = remark.join("\n")
 
@@ -203,6 +204,8 @@ def process_publicatie(publicatie)
 
     $errors << "ERROR: No publication date found for publication #{dossiernummer}." if publicatiedatum.empty?
 
+    publication_status = determine_publication_status(rec)
+
     set_publicationflow(
       publication_uri: publication_uri,
       identification: identification_uri,
@@ -217,8 +220,9 @@ def process_publicatie(publicatie)
       caze: case_uri,
       openingsdatum: openingsdatum,
       treatment: treatment_uri,
-      pages: number_of_pages,
+      pages: aantal_bladzijden,
       document_number: document_nr,
+      publication_status: publication_status,
     )
     log.info "Processing dossiernummer #{dossiernummer} DONE."
 end
@@ -294,7 +298,7 @@ def query_reference_document(dossiernummer, document_number)
   query += "   }"
   query += " } ORDER BY ?title"
 
-  query(query)
+  LinkedDB::query(query)
 end
 
 def create_case(title)
@@ -352,6 +356,14 @@ def map_mode(publicatie_wijze)
       mode = PUBLICATIEWIJZE_EXTENSO
   end
   mode
+end
+
+def determine_publication_status(rec)
+  if rec.publicatiedatum
+    PUBLICATIE_STATUS_GEPUBLICEERD
+  else
+    PUBLICATIE_STATUS_TE_PUBLICEREN
+  end
 end
 
 def create_translation_subcase(rec, data)
@@ -479,7 +491,6 @@ def create_publicationflow()
   $public_graph << RDF.Statement(publication_uri, RDF.type, PUB.Publicatieaangelegenheid)
   $public_graph << RDF.Statement(publication_uri, MU_CORE.uuid, uuid)
   $public_graph << RDF.Statement(publication_uri, DCT.source, DATASOURCE)
-  $public_graph << RDF.Statement(publication_uri, ADMS.status, PUBLISHED_STATUS)
 
   publication_uri
 end
@@ -510,6 +521,8 @@ def set_publicationflow(data)
 
   # disabled: impossible to determine reference document with current data
   # $public_graph << RDF.Statement(data[:reference_document], FABIO.hasPageCount, data[:pages]) unless (data[:reference_document].nil? or data[:pages].nil?)
+
+  $public_graph << RDF.Statement(publication_uri, ADMS.status, data[:publication_status])
 end
 
 def validate_result(result, name, optional, exact)
