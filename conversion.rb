@@ -476,7 +476,7 @@ def create_publication_subcase(rec, data)
     $public_graph << RDF.Statement(publication_activity_uri, PUB.publicatieactiviteitVanAanvraag, publication_request_activity_uri)
     $public_graph << RDF.Statement(publication_activity_uri, PUB.publicatieVindtPlaatsTijdens, subcase_uri)
 
-    if data[:publication_status] === Status::PUBLISHED
+    if data[:publication_status] === PUBLICATIE_STATUS_GEPUBLICEERD
       decision_uri = create_decision publication_date: publicationEndDate
       $public_graph << RDF.Statement(publication_activity_uri, PROV.generated, decision_uri)
     end
