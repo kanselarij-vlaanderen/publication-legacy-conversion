@@ -27,6 +27,6 @@ module LinkedDB
 
   def self.sparql_escape_string string
     # added new line support (missing in mu-ruby-template)
-    '"' + string.gsub(/[\\"']/) { |s| '\\' + s }.gsub(/\n/, '\n') + '"'
+    '"""' + string.gsub(/[\\"']/) { |s| '\\' + s } + '"""'
   end
 end
