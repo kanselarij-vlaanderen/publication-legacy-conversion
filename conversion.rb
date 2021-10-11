@@ -47,11 +47,10 @@ $public_graph = RDF::Graph.new
 
 $errors = Array.new
 
-##
-# +publicaties+ publicaties.nil? => all publicaties
 def run(input_dir="/data/input/", output_dir="/data/output/", publicaties = nil)
+  # By default, gets all publications from the access db. If "publicaties" is specified, only runs for those specific ones.
   log.info "[STARTED] Starting publication legacy conversion"
-  
+
   legacy_input_file_name = "legacy_data.xml"
   legacy_input_file = "#{input_dir}#{legacy_input_file_name}"
 
