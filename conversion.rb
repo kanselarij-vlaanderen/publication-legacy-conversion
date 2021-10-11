@@ -366,8 +366,8 @@ def create_translation_subcase(rec, data)
   subcase_uri = RDF::URI(BASE_URI % { :resource => 'procedurestap', :id => uuid})
   $public_graph << RDF.Statement(subcase_uri, RDF.type, PUB.VertalingProcedurestap)
   $public_graph << RDF.Statement(subcase_uri, MU_CORE.uuid, uuid)
-  $public_graph << RDF.Statement(subcase_uri, DOSSIER['Procedurestap.startdatum'], activity_start_date) if activity_start_date
-  $public_graph << RDF.Statement(subcase_uri, DOSSIER['Procedurestap.einddatum'], activity_end_date) if activity_end_date
+  $public_graph << RDF.Statement(subcase_uri, DOSSIER['Procedurestap.startdatum'], subcase_start_date) if subcase_start_date
+  $public_graph << RDF.Statement(subcase_uri, DOSSIER['Procedurestap.einddatum'], subcase_end_date) if subcase_end_date
   $public_graph << RDF.Statement(subcase_uri, TMO.dueDate, due_date) unless due_date.nil?
   $public_graph << RDF.Statement(subcase_uri, DCT.source, DATASOURCE)
 
