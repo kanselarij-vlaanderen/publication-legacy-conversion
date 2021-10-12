@@ -64,8 +64,8 @@ def run(input_dir="/data/input/", output_dir="/data/output/", publicaties = nil)
   $errors_csv = CSV.open(
     "#{output_dir}#{file_timestamp}-errors.csv", mode='wb')
   
-  $query_mandatees = QueryMandatees.new(
-    "#{input_dir}mandatees-corrections.csv")
+  mandatees_corrections_path = File.join(__dir__, "configuration/mandatees-corrections.csv")    
+  $query_mandatees = QueryMandatees.new(mandatees_corrections_path)
 
   log.info "-- Input file : #{legacy_input_file}"
   log.info "-- Output file : #{ttl_output_file}"
