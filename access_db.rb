@@ -10,7 +10,7 @@ module AccessDB
     aantal_bladzijden: { tag: 'aantal_x0020_blz' },
     opdrachtgever: { tag: 'opdrachtgever' },
     opdracht_formeel_ontvangen: { tag: 'opdracht_x0020_formeel_x0020_ontvangen', type: :datetime },
-    wijze_van_publicatie: { tag: 'wijze_x0020_van_x0020_publicatie', type: :datetime },
+    wijze_van_publicatie: { tag: 'wijze_x0020_van_x0020_publicatie' },
     vertaling_aangevraagd: { tag: 'vertaling_x0020_aangevraagd', type: :datetime } ,
     limiet_vertaling: { tag: 'limiet_x0020_vertaling', type: :datetime } ,
     vertaling_ontvangen: { tag: 'vertaling_x0020_ontvangen', type: :datetime } ,
