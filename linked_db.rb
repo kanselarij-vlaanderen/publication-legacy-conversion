@@ -19,7 +19,7 @@ module LinkedDB
         time_to_sleep = BASE_BACKOFF_SECONDS * (try ** 2)
         log.info "HTTP error: retrying in #{time_to_sleep} seconds. Sleeping: zzz..."
 
-        Kernel.sleep time_to_sleep_sec
+        Kernel.sleep time_to_sleep
       end
     end
 
