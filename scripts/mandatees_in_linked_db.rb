@@ -2,7 +2,8 @@ def sparql_escape_string string
   '"""' + string.gsub(/[\\"']/) { |s| '\\' + s } + '"""'
 end
 
-query_mandatees = QueryMandatees.new './data/input/mandatees-corrections.csv'
+mandatees_corrections_path = File.join(__dir__, '../configuration/mandatees-corrections.csv')
+query_mandatees = QueryMandatees.new mandatees_corrections_path
 
 records = AccessDB::records()
 
