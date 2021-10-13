@@ -182,11 +182,8 @@ def process_publicatie(publicatie)
     remark << "opmerkingen: #{opmerkingen}" unless opmerkingen.empty?
     remark = remark.join("\n")
 
-    unless wijze_van_publicatie.empty?
-      mode = validate(map_mode(wijze_van_publicatie), "map mode #{dossiernummer} #{dossier_date}", wijze_van_publicatie)
-    end
-
-    regelgeving_type = validate(map_regelgeving_type(soort), "map regelgeving type #{dossiernummer}", soort)
+    publication_mode = get_publication_mode(rec)
+    regelgeving_type = get_regulation_type(rec)
 
     publication_uri = create_publicationflow()
 
@@ -214,7 +211,7 @@ def process_publicatie(publicatie)
       mandatees: mandatee_uris,
       reference_document: reference_document_uri,
       created: dossier_date,
-      mode: mode,
+      mode: publication_mode,
       numac_number: numac_number_uri,
       remark: remark,
       caze: case_uri,
@@ -322,34 +319,44 @@ def create_treatment(date)
   treatment_uri
 end
 
-def map_regelgeving_type(soort)
-  case soort
-    when 'mb'
-      type = REGELGEVING_TYPE_MB
-    when 'bvr'
-      type = REGELGEVING_TYPE_BVR
-    when 'decreet'
-      type = REGELGEVING_TYPE_DECREET
-    when 'besluit dir.-gen.',
-         'besluit secr.-gen.',
-         'besluit raad van bestuur'
-      type = REGELGEVING_TYPE_BESLUIT
-    when 'omzendbrief'
-      type = REGELGEVING_TYPE_OMZENDBRIEF
-    when 'bericht'
-      type = REGELGEVING_TYPE_BERICHT
-    when 'kb'
-      type = REGELGEVING_TYPE_KB
-    when 'erratum'
-      type = REGELGEVING_TYPE_ERRATUM
-    else
-      type = REGELGEVING_TYPE_ANDERE
+def get_regulation_type(rec)
+  soort = rec.soort
+  if soort
+    soort.strip!
+    soort.downcase!
+    case soort
+      when 'mb'
+        type = REGELGEVING_TYPE_MB
+      when 'bvr'
+        type = REGELGEVING_TYPE_BVR
+      when 'decreet'
+        type = REGELGEVING_TYPE_DECREET
+      when 'besluit dir.-gen.',
+            'besluit secr.-gen.',
+            'besluit raad van bestuur'
+        type = REGELGEVING_TYPE_BESLUIT
+      when 'omzendbrief'
+        type = REGELGEVING_TYPE_OMZENDBRIEF
+      when 'bericht'
+        type = REGELGEVING_TYPE_BERICHT
+      when 'kb'
+        type = REGELGEVING_TYPE_KB
+      when 'erratum'
+        type = REGELGEVING_TYPE_ERRATUM
+      else
+        type = REGELGEVING_TYPE_ANDERE
+    end
+    return type
+  else
+    return nil
   end
-  type
 end
 
-def map_mode(publicatie_wijze)
-  case publicatie_wijze
+def get_publication_mode(rec)
+  wijze = rec.wijze_van_publicatie
+  wijze.strip!
+  wijze.downcase!
+  case wijze
     when 'uittreksel'
       mode = PUBLICATIEWIJZE_UITTREKSEL
     when 'extenso'
