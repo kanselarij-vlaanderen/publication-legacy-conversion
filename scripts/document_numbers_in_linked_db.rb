@@ -4,7 +4,7 @@ query_reference_document = QueryReferenceDocument.new
 
 records = AccessDB.records
 
-$errors_csv = CSV.open('./reference-documents-not-found.csv', mode='wt', encoding: 'utf-8')
+$errors_csv = CSV.open('./reference-documents-not-found.csv', mode='a+', encoding: 'utf-8')
 
 i = 0
 records.each do |rec|
