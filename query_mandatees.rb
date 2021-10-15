@@ -9,7 +9,7 @@ class QueryMandatees
   
     return [] if bevoegde_ministers.nil?
   
-    dossier_date = rec.datum || rec.opdracht_formeel_ontvangen
+    dossier_date = get_dossier_date rec
     dossier_date_escaped = dossier_date.sparql_escape
   
     if bevoegde_ministers === "allen"
@@ -19,6 +19,7 @@ class QueryMandatees
             ?mandateeUri a <http://data.vlaanderen.be/ns/mandaat#Mandataris> ;
                         <http://data.vlaanderen.be/ns/mandaat#start> ?start .
             OPTIONAL { ?mandateeUri <http://data.vlaanderen.be/ns/mandaat#einde> ?end .}
+            ?mandateeUri dct:title ?title .
             FILTER ( ?start < #{dossier_date_escaped})
             FILTER ( !bound(?end) || ?end > #{dossier_date_escaped})
           }
