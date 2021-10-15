@@ -1,6 +1,4 @@
 module AccessDB
-  extend self
-
   FIELDS = {
     dossiernummer: { tag: 'dossiernummer' },
     opschrift: { tag:  'opschrift' },
@@ -47,7 +45,7 @@ module AccessDB
     return @doc.xpath('//Dossieropvolging')
   end
 
-  def self.[](range = nil)
+  def self.records(range = nil)
     records = @doc.xpath('//Dossieropvolging')
 
     if !range.nil?
@@ -59,11 +57,11 @@ module AccessDB
       .map { |n| record(n) }
   end
 
-  def record(node)
+  def self.record(node)
     Record.new node
   end
   
-  def field(n, name)
+  def self.field(n, name)
     field = AccessDB::FIELDS[name]
     if !field
       raise "no field: #{name}"
