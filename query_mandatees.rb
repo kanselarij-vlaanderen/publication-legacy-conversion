@@ -78,22 +78,23 @@ class QueryMandatees
     dossier_date = get_dossier_date rec
 
     if mandatees_results.length == 0
-      $errors_csv << [rec.dossiernummer, "mandatee", "not-found", minister, dossier_date, rec.opschrift]
+      $errors_csv << [rec.dossiernummer, "mandatee", "not-found", minister, dossier_date]
       return []
     end
 
-    mandatees_results_title = mandatees_results.filter { |r| r[:title]&.value }
+    mandatees_results_title = mandatees_results.dup.filter { |r| r[:title]&.value } # dup: filter modifies the solutionset
     if mandatees_results_title.length >= 1
       mandatee_result = mandatees_results_title.first
-      if mandatees_results_title.length > 1
-        $errors_csv << [rec.dossiernummer, "mandatee", "found-multiple", minister, dossier_date, rec.opschrift, mandatee_result[:mandateeUri]]
-      end
+      if mandatees_results.length >= 1
+        $errors_csv << [rec.dossiernummer, "mandatee", "found-multiple", minister, dossier_date, mandatee_result[:mandateeUri].value]
+      end  
     else
       mandatee_result = mandatees_results.first
       if mandatees_results.length > 1
-        $errors_csv << [rec.dossiernummer, "mandatee", "found-multiple", minister, dossier_date, rec.opschrift, mandatee_result[:mandateeUri]]
+        $errors_csv << [rec.dossiernummer, "mandatee", "found-multiple", minister, dossier_date, mandatee_result[:mandateeUri].value]
       end
     end
+
     return [mandatee_result[:mandateeUri]]
   end
 end
