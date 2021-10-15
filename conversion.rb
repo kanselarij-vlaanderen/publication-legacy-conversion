@@ -3,6 +3,7 @@ require 'nokogiri'
 require_relative 'access_db.rb'
 require_relative 'linked_db.rb'
 require_relative 'query_mandatees.rb'
+require_relative 'convert_regulation_types.rb'
 
 BASE_URI = 'http://themis.vlaanderen.be/id/%{resource}/%{id}'
 CONCEPT_URI = 'http://themis.vlaanderen.be/id/concept/%{resource}/%{id}'
@@ -17,6 +18,7 @@ MANDAAT = RDF::Vocabulary.new("http://data.vlaanderen.be/ns/mandaat#")
 DOSSIER = RDF::Vocabulary.new("https://data.vlaanderen.be/ns/dossier#")
 BESLUIT = RDF::Vocabulary.new("http://data.vlaanderen.be/ns/besluit#")
 BESLUITVORMING = RDF::Vocabulary.new("http://data.vlaanderen.be/ns/besluitvorming#")
+ELI = RDF::Vocabulary.new("http://data.europa.eu/eli/ontology#")
 EXT = RDF::Vocabulary.new("http://mu.semte.ch/vocabularies/ext/")
 DCT = RDF::Vocabulary.new("http://purl.org/dc/terms/")
 TMO = RDF::Vocabulary.new("http://www.semanticdesktop.org/ontologies/2008/05/20/tmo#")
@@ -184,7 +186,7 @@ def process_publicatie(publicatie)
     remark = remark.join("\n")
 
     publication_mode = get_publication_mode(rec)
-    regelgeving_type = get_regulation_type(rec)
+    regelgeving_type = ConvertRegulationTypes.convert(rec)
 
     publication_uri = create_publicationflow()
 
@@ -325,39 +327,6 @@ def create_treatment(data)
   $public_graph << RDF.Statement(treatment_uri, DOSSIER['Activiteit.startdatum'], data[:start_date].to_date)
   $public_graph << RDF.Statement(treatment_uri, DCT.source, DATASOURCE)
   treatment_uri
-end
-
-def get_regulation_type(rec)
-  soort = rec.soort
-  if soort
-    soort.strip!
-    soort.downcase!
-    case soort
-      when 'mb'
-        type = REGELGEVING_TYPE_MB
-      when 'bvr'
-        type = REGELGEVING_TYPE_BVR
-      when 'decreet'
-        type = REGELGEVING_TYPE_DECREET
-      when 'besluit dir.-gen.',
-            'besluit secr.-gen.',
-            'besluit raad van bestuur'
-        type = REGELGEVING_TYPE_BESLUIT
-      when 'omzendbrief'
-        type = REGELGEVING_TYPE_OMZENDBRIEF
-      when 'bericht'
-        type = REGELGEVING_TYPE_BERICHT
-      when 'kb'
-        type = REGELGEVING_TYPE_KB
-      when 'erratum'
-        type = REGELGEVING_TYPE_ERRATUM
-      else
-        type = REGELGEVING_TYPE_ANDERE
-    end
-    return type
-  else
-    return nil
-  end
 end
 
 def get_publication_mode(rec)
