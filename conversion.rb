@@ -331,13 +331,15 @@ end
 
 def get_publication_mode(rec)
   wijze = rec.wijze_van_publicatie
-  wijze.strip!
-  wijze.downcase!
-  case wijze
-    when 'uittreksel'
-      mode = PUBLICATIEWIJZE_UITTREKSEL
-    when 'extenso'
-      mode = PUBLICATIEWIJZE_EXTENSO
+  if wijze
+    wijze.strip!
+    wijze.downcase!
+    case wijze
+      when 'uittreksel'
+        mode = PUBLICATIEWIJZE_UITTREKSEL
+      when 'extenso'
+        mode = PUBLICATIEWIJZE_EXTENSO
+    end
   end
   mode
 end
