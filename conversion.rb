@@ -3,6 +3,7 @@ require 'nokogiri'
 require_relative 'access_db.rb'
 require_relative 'linked_db.rb'
 require_relative 'query_mandatees.rb'
+require_relative 'query_reference_document.rb'
 
 BASE_URI = 'http://themis.vlaanderen.be/id/%{resource}/%{id}'
 CONCEPT_URI = 'http://themis.vlaanderen.be/id/concept/%{resource}/%{id}'
@@ -156,21 +157,7 @@ def process_publicatie(publicatie)
 
     mandatee_uris = $query_mandatees.query(rec)
 
-    reference_document_uri = nil
-    unless document_nr.empty?
-      documents = query_reference_document(dossiernummer, document_nr)
-      validate_result(documents, "Publication #{dossiernummer} query reference document #{document_nr}", true, true) unless documents.nil?
-      if documents and documents.length > 0
-        reference_document_uri = documents.first[:stukUri]
-        case_uri = documents.first[:caseUri]
-        treatment_uri = documents.first[:treatmentUri]
-        if reference_document_uri.nil? or case_uri.nil? or treatment_uri.nil?
-          $errors << "ERROR: no document, case or treatment found for publication #{dossiernummer} with document number '#{document_nr}'."
-        end
-      else
-        $errors << "ERROR: no document found for publication #{dossiernummer} with document number '#{document_nr}'."
-      end
-    end
+    reference_document_uri, case_uri, treatment_uri = QueryReferenceDocument.query(rec)
 
     if reference_document_uri.nil?
       case_uri = create_case(opschrift)
