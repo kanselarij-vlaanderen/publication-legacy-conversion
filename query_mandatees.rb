@@ -85,7 +85,7 @@ class QueryMandatees
     mandatees_results_title = mandatees_results.dup.filter { |r| r[:title]&.value } # dup: filter modifies the solutionset
     if mandatees_results_title.length >= 1
       mandatee_result = mandatees_results_title.first
-      if mandatees_results.length >= 1
+      if mandatees_results.length > 1
         $errors_csv << [rec.dossiernummer, "mandatee", "found-multiple", minister, dossier_date, mandatee_result[:mandateeUri].value]
       end  
     else
