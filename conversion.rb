@@ -4,6 +4,7 @@ require_relative 'access_db.rb'
 require_relative 'linked_db.rb'
 require_relative 'query_mandatees.rb'
 require_relative 'query_reference_document.rb'
+require_relative 'convert_regulation_types.rb'
 
 BASE_URI = 'http://themis.vlaanderen.be/id/%{resource}/%{id}'
 CONCEPT_URI = 'http://themis.vlaanderen.be/id/concept/%{resource}/%{id}'
@@ -163,11 +164,8 @@ def process_publicatie(publicatie)
     remark << "opmerkingen: #{opmerkingen}" unless opmerkingen.empty?
     remark = remark.join("\n")
 
-    unless wijze_van_publicatie.empty?
-      mode = validate(map_mode(wijze_van_publicatie), "map mode #{dossiernummer} #{dossier_date}", wijze_van_publicatie)
-    end
-
-    regelgeving_type = validate(map_regelgeving_type(soort), "map regelgeving type #{dossiernummer}", soort)
+    publication_mode = get_publication_mode(rec)
+    regelgeving_type = ConvertRegulationTypes.convert(rec)
 
     publication_uri = create_publicationflow()
 
@@ -200,7 +198,7 @@ def process_publicatie(publicatie)
       creation_date: dossier_date,
       opening_date: opening_date,
       closing_date: closing_date,
-      mode: mode,
+      mode: publication_mode,
       numac_number: numac_number_uri,
       remark: remark,
       caze: case_uri,
@@ -312,38 +310,17 @@ def create_treatment(data)
   treatment_uri
 end
 
-def map_regelgeving_type(soort)
-  case soort
-    when 'mb'
-      type = REGELGEVING_TYPE_MB
-    when 'bvr'
-      type = REGELGEVING_TYPE_BVR
-    when 'decreet'
-      type = REGELGEVING_TYPE_DECREET
-    when 'besluit dir.-gen.',
-         'besluit secr.-gen.',
-         'besluit raad van bestuur'
-      type = REGELGEVING_TYPE_BESLUIT
-    when 'omzendbrief'
-      type = REGELGEVING_TYPE_OMZENDBRIEF
-    when 'bericht'
-      type = REGELGEVING_TYPE_BERICHT
-    when 'kb'
-      type = REGELGEVING_TYPE_KB
-    when 'erratum'
-      type = REGELGEVING_TYPE_ERRATUM
-    else
-      type = REGELGEVING_TYPE_ANDERE
-  end
-  type
-end
-
-def map_mode(publicatie_wijze)
-  case publicatie_wijze
-    when 'uittreksel'
-      mode = PUBLICATIEWIJZE_UITTREKSEL
-    when 'extenso'
-      mode = PUBLICATIEWIJZE_EXTENSO
+def get_publication_mode(rec)
+  wijze = rec.wijze_van_publicatie
+  if wijze
+    wijze.strip!
+    wijze.downcase!
+    case wijze
+      when 'uittreksel'
+        mode = PUBLICATIEWIJZE_UITTREKSEL
+      when 'extenso'
+        mode = PUBLICATIEWIJZE_EXTENSO
+    end
   end
   mode
 end
