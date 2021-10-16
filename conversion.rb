@@ -184,7 +184,7 @@ def process_publicatie(publicatie)
 
     numac_number_uri = create_numac_number(werknummer_BS) unless werknummer_BS.empty?
 
-    $errors << "ERROR: No publication date found for publication #{dossiernummer}." if publicatiedatum.empty?
+    $errors_csv << [dossiernummer, "publication-date", "missing"]if publicatiedatum.empty?
 
     closing_date = rec.publicatiedatum
 
