@@ -49,8 +49,6 @@ PUBLICATIE_STATUS_GEPUBLICEERD = RDF::URI "http://themis.vlaanderen.be/id/concep
 
 $public_graph = RDF::Graph.new
 
-$errors = Array.new
-
 def run(input_dir="/data/input/", output_dir="/data/output/", publicaties = nil)
   # By default, gets all publications from the access db. If "publicaties" is specified, only runs for those specific ones.
   log.info "[STARTED] Starting publication legacy conversion"
@@ -93,10 +91,8 @@ def run(input_dir="/data/input/", output_dir="/data/output/", publicaties = nil)
       log.info "[ONGOING] Writing generated data to files for records #{index-batch_size} until #{index}..."
       RDF::Writer.open("#{ttl_output_file}-#{batch_number}.ttl") { |writer| writer << $public_graph }
       File.open("#{ttl_output_file}-#{batch_number}.graph", "w+") { |f| f.puts(KANSELARIJ_GRAPH)}
-      File.open(error_output_file, "a+") { |f| f.puts($errors) }
       log.info "done"
       $public_graph = RDF::Graph.new
-      $errors = Array.new
       batch_number += 1
     end
   end
@@ -247,47 +243,6 @@ def create_structured_identifier(dossiernummer)
   $public_graph << RDF.Statement(structured_identification_uri, DCT.source, DATASOURCE)
 
   structured_identification_uri
-end
-
-def query_reference_document(dossiernummer, document_number)
-  # reformatting document number from e.g. from 'VR/96/09.07/0547' to VR 1996 0907 DOC.0547 /
-
-  pattern = 'VR/(?<year>\d{2})/(?<day>[0-9]{2})\.(?<month>[0-9]{2})(med|doc|dec)?[/\.-]? ?(?<number>\d{4})'
-  regexp = Regexp.new pattern, true
-  titleParts = document_number.match(regexp)
-
-  if titleParts.nil?
-    error = "Error parsing document number '#{document_number} for publication #{dossiernummer}"
-    $errors_csv << [dossiernummer, 'reference-document', 'could-not-parse', document_number]
-    if not error.nil?
-      log.info error
-      $errors << error
-      return
-    end
-  end
-
-  year = titleParts[:year]
-  year4 = year.to_i < 30 ? "20" + year : "19" + year
-
-  docTitle = "VR #{year4} #{titleParts[:day]}#{titleParts[:month]} DOC.#{titleParts[:number]}"
-  medTitle = "VR #{year4} #{titleParts[:day]}#{titleParts[:month]} MED.#{titleParts[:number]}"
-  log.info "reformatting document_number '#{document_number}' into '#{docTitle}'"
-
-  query =  " SELECT ?stukUri ?caseUri ?treatmentUri WHERE {"
-  query += "   GRAPH <#{KANSELARIJ_GRAPH}> {"
-  query += "     ?treatmentUri a <#{BESLUIT.BehandelingVanAgendapunt}> ;"
-  query += "              <#{BESLUITVORMING.heeftOnderwerp}> ?agendaItem ."
-  query += "     ?agendaItem <#{BESLUITVORMING.geagendeerdStuk}> ?stukUri ."
-  query += "     ?caseUri a <#{DOSSIER.Dossier}> ;"
-  query += "              <#{DOSSIER['Dossier.bestaatUit']}> ?stukUri ."
-  query += "     ?stukUri a <#{DOSSIER.Stuk}> ;"
-  query += "              <#{DCT.title}> ?title ."
-  query += "   FILTER (strstarts(str(?title), ?titleValue) )"
-  query += "   VALUES ?titleValue  { '#{docTitle}' '#{medTitle}' }"
-  query += "   }"
-  query += " } ORDER BY ?title"
-
-  LinkedDB::query(query)
 end
 
 def create_case(title)
@@ -503,26 +458,4 @@ def set_publicationflow(data)
   # $public_graph << RDF.Statement(data[:reference_document], FABIO.hasPageCount, data[:pages]) unless (data[:reference_document].nil? or data[:pages].nil?)
 
   $public_graph << RDF.Statement(publication_uri, ADMS.status, data[:publication_status])
-end
-
-def validate_result(result, name, optional, exact)
-  error = nil
-  error = "ERROR: query '#{name}' returned #{result.length} results. Expected: 1" if (result.length > 1 && exact)
-  error = "ERROR: query '#{name}' returned no results. Expected: 1" if (!optional && result.length == 0)
-  error = "ERROR: query '#{name}' returned no results." if (!optional and not exact)
-  if not error.nil?
-    log.info error
-    $errors << error
-  end
-  result
-end
-
-def validate(result, name, value)
-  error = nil
-  error = "ERROR: '#{name}' for value '#{value}'." if result.nil? or result.to_s.empty?
-  if not error.nil?
-    log.info error
-    $errors << error
-  end
-  result
 end
