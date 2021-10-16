@@ -133,21 +133,13 @@ def process_publicatie(publicatie)
     rec = AccessDB::Record.new(publicatie)
 
     if opschrift.empty? and datum.empty? and document_nr.empty?
-      error = "ERROR: No sufficient data found for publication #{dossiernummer}"
-      if not error.nil?
-        log.info error
-        $errors << error
-      end
+      $errors_csv << [dossiernummer, "no-sufficient-data", "basic", opschrift, datum, document_nr]
       return
     end
 
     dossier_date = get_dossier_date rec
     if dossier_date.nil?
-      error = "ERROR: No date found for publication #{dossiernummer}"
-      if not error.nil?
-        log.info error
-        $errors << error
-      end
+      $errors_csv << [dossiernummer, "no-sufficient-data", "dates", datum, opdracht_formeel_ontvangen]
       return
     end
 
