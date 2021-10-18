@@ -26,10 +26,12 @@ class QueryMandatees
           }
         }
       }
-  
+
       mandatees_results = LinkedDB.query(query)
   
-      mandatees = process_mandatee_results rec, bevoegde_ministers, mandatees_results
+      grouped_mandatees = mandatees_results.group_by { |it| it[:person] }
+      mandatees = grouped_mandatees.flat_map { |k, mandatee_results| process_mandatee_results(rec, bevoegde_ministers, mandatee_results) } 
+
       return mandatees
     else
       bevoegde_ministers = bevoegde_ministers.split('/')
@@ -65,7 +67,7 @@ class QueryMandatees
   
         mandatees_results = LinkedDB::query(query)
         
-        mandatees = process_mandatee_results rec, minister, mandatees_results
+        mandatees = process_mandatee_results rec, minister, mandatees_results.to_a
         return mandatees
       end
 
@@ -82,10 +84,10 @@ class QueryMandatees
       return []
     end
 
-    mandatees_results_title = mandatees_results.dup.filter { |r| r[:title]&.value } # dup: filter modifies the solutionset
+    mandatees_results_title = mandatees_results.select { |r| r[:title]&.value }
     if mandatees_results_title.length >= 1
       mandatee_result = mandatees_results_title.first
-      if mandatees_results.length > 1
+      if mandatees_results_title.length > 1
         $errors_csv << [rec.dossiernummer, "mandatee", "found-multiple", minister, dossier_date, mandatee_result[:mandateeUri].value]
       end  
     else
