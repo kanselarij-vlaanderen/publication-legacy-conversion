@@ -300,7 +300,7 @@ def create_translation_subcase(rec, data)
   subcase_uri = RDF::URI(BASE_URI % { :resource => 'procedurestap', :id => uuid})
   $public_graph << RDF.Statement(subcase_uri, RDF.type, PUB.VertalingProcedurestap)
   $public_graph << RDF.Statement(subcase_uri, MU_CORE.uuid, uuid)
-  $public_graph << RDF.Statement(subcase_uri, DOSSIER['Procedurestap.startdatum'], subcase_start_date) if subcase_start_date
+  $public_graph << RDF.Statement(subcase_uri, DOSSIER['Procedurestap.startdatum'], subcase_start_date)
   $public_graph << RDF.Statement(subcase_uri, DOSSIER['Procedurestap.einddatum'], subcase_end_date) if subcase_end_date
   $public_graph << RDF.Statement(subcase_uri, TMO.dueDate, due_date) if due_date
   $public_graph << RDF.Statement(subcase_uri, DCT.source, DATASOURCE)
@@ -311,7 +311,7 @@ def create_translation_subcase(rec, data)
     $public_graph << RDF.Statement(request_activity_uri, RDF.type, PUB.AanvraagActiviteit)
     $public_graph << RDF.Statement(request_activity_uri, MU_CORE.uuid, request_activity_uuid)
     $public_graph << RDF.Statement(request_activity_uri, DOSSIER['Activiteit.startdatum'], activity_start_date) if activity_start_date
-    $public_graph << RDF.Statement(request_activity_uri, DOSSIER['Activiteit.einddatum'], activity_end_date) if activity_end_date # request_activity.end_date == request_activity.start_date
+    $public_graph << RDF.Statement(request_activity_uri, DOSSIER['Activiteit.einddatum'], activity_end_date) if activity_end_date # request_activity.end_date == request_activity.start_date // Access DB does not contain end date
     $public_graph << RDF.Statement(request_activity_uri, PUB.aanvraagVindtPlaatsTijdensVertaling, subcase_uri)
     $public_graph << RDF.Statement(request_activity_uri, DCT.source, DATASOURCE)
 
@@ -337,14 +337,14 @@ def create_publication_subcase(rec, data)
   target_end_date = rec.gevraagde_publicatiedatum
   publication_end_date = rec.publicatiedatum
 
-  subcase_start_date = proofing_start_date || get_dossier_date(rec)
-  subcase_end_date = publication_end_date
+  subcase_start_date = rec.drukproef_aangevraagd || get_dossier_date(rec)
+  subcase_end_date = rec.publicatiedatum
 
   publication_subcase_uuid = generate_uuid()
   subcase_uri = RDF::URI(BASE_URI % { :resource => 'procedurestap', :id => publication_subcase_uuid})
   $public_graph << RDF.Statement(subcase_uri, RDF.type, PUB.PublicatieProcedurestap)
   $public_graph << RDF.Statement(subcase_uri, MU_CORE.uuid, publication_subcase_uuid)
-  $public_graph << RDF.Statement(subcase_uri, DOSSIER['Procedurestap.startdatum'], subcase_start_date) if subcase_start_date
+  $public_graph << RDF.Statement(subcase_uri, DOSSIER['Procedurestap.startdatum'], subcase_start_date)
   $public_graph << RDF.Statement(subcase_uri, DOSSIER['Procedurestap.einddatum'], subcase_end_date) if subcase_end_date
   $public_graph << RDF.Statement(subcase_uri, TMO.dueDate, due_date) if due_date
   $public_graph << RDF.Statement(subcase_uri, TMO.targetEndTime, target_end_date) if target_end_date
@@ -356,7 +356,7 @@ def create_publication_subcase(rec, data)
     $public_graph << RDF.Statement(proofing_request_activity_uri, RDF.type, PUB.AanvraagActiviteit)
     $public_graph << RDF.Statement(proofing_request_activity_uri, MU_CORE.uuid, proofing_request_activity_uuid)
     $public_graph << RDF.Statement(proofing_request_activity_uri, DOSSIER['Activiteit.startdatum'], proofing_start_date) if proofing_start_date
-    $public_graph << RDF.Statement(proofing_request_activity_uri, DOSSIER['Activiteit.einddatum'], proofing_start_date) if proofing_start_date
+    $public_graph << RDF.Statement(proofing_request_activity_uri, DOSSIER['Activiteit.einddatum'], proofing_start_date) if proofing_start_date # request_activity.end_date == request_activity.start_date / Access DB does not contain end date
     $public_graph << RDF.Statement(proofing_request_activity_uri, PUB.aanvraagVindtPlaatsTijdensPublicatie, subcase_uri)
     $public_graph << RDF.Statement(proofing_request_activity_uri, DCT.source, DATASOURCE)
 
@@ -446,7 +446,7 @@ def set_publicationflow(data)
   # $public_graph << RDF.Statement(publication_uri, PUB.referentieDocument, data[:reference_document]) unless data[:reference_document].nil?
   $public_graph << RDF.Statement(publication_uri, PUB.identifier, data[:numac_number]) if data[:numac_number]
   $public_graph << RDF.Statement(publication_uri, RDFS.comment, data[:remark]) if data[:remark]
-  $public_graph << RDF.Statement(publication_uri, DOSSIER.openingsdatum, data[:opening_date].to_date) if data[:opening_date]
+  $public_graph << RDF.Statement(publication_uri, DOSSIER.openingsdatum, data[:opening_date].to_date)
   $public_graph << RDF.Statement(publication_uri, DOSSIER.sluitingsdatum, data[:closing_date].to_date) if data[:closing_date]
   $public_graph << RDF.Statement(publication_uri, EXT.legacyDocumentNumberMSAccess, data[:document_number]) unless data[:document_number].empty?
 
