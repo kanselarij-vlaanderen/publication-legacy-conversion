@@ -188,17 +188,17 @@ def process_publicatie(publicatie)
       publication_uri: publication_uri,
       identification: identification_uri,
       short_title: opschrift,
-      regulation_type: regelgeving_type,
       mandatees: mandatee_uris,
       reference_document: reference_document_uri,
       creation_date: dossier_date,
       opening_date: opening_date,
       closing_date: closing_date,
-      mode: publication_mode,
+      regulation_type: regelgeving_type,
+      publication_mode: publication_mode,
       numac_number: numac_number_uri,
       remark: remark,
-      caze: case_uri,
       publication_status: publication_status,
+      caze: case_uri,
       treatment: treatment_uri,
       pages: aantal_bladzijden,
       document_number: document_nr,
@@ -440,12 +440,12 @@ def set_publicationflow(data)
   $public_graph << RDF.Statement(publication_uri, DOSSIER.behandelt, data[:caze])
   $public_graph << RDF.Statement(publication_uri, DCT.subject, data[:treatment])
   $public_graph << RDF.Statement(publication_uri, DCT.alternative, data[:short_title]) unless data[:short_title].nil?
-  $public_graph << RDF.Statement(publication_uri, PUB.regelgevingType, data[:regulation_type]) unless data[:regulation_type].nil?
-  $public_graph << RDF.Statement(publication_uri, PUB.publicatieWijze, data[:mode]) unless data[:mode].nil?
+  $public_graph << RDF.Statement(publication_uri, PUB.regelgevingType, data[:regulation_type]) if data[:regulation_type]
+  $public_graph << RDF.Statement(publication_uri, PUB.publicatieWijze, data[:publication_mode]) if data[:publication_mode]
   # disabled: impossible to determine reference document with current data
   # $public_graph << RDF.Statement(publication_uri, PUB.referentieDocument, data[:reference_document]) unless data[:reference_document].nil?
-  $public_graph << RDF.Statement(publication_uri, PUB.identifier, data[:numac_number]) unless data[:numac_number].nil?
-  $public_graph << RDF.Statement(publication_uri, RDFS.comment, data[:remark]) unless data[:remark].nil?
+  $public_graph << RDF.Statement(publication_uri, PUB.identifier, data[:numac_number]) if data[:numac_number]
+  $public_graph << RDF.Statement(publication_uri, RDFS.comment, data[:remark]) if data[:remark]
   $public_graph << RDF.Statement(publication_uri, DOSSIER.openingsdatum, data[:opening_date].to_date) if data[:opening_date]
   $public_graph << RDF.Statement(publication_uri, DOSSIER.sluitingsdatum, data[:closing_date].to_date) if data[:closing_date]
   $public_graph << RDF.Statement(publication_uri, EXT.legacyDocumentNumberMSAccess, data[:document_number]) unless data[:document_number].empty?
