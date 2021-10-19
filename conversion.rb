@@ -330,15 +330,15 @@ def create_translation_subcase(rec, data)
 end
 
 def create_publication_subcase(rec, data)
-  proofingStartDate = rec.drukproef_aangevraagd
-  proofingEndDate = rec.drukproef_ontvangen
-  publicationStartDate = rec.naar_BS_voor_publicatie
-  dueDate = rec.limiet_publicatie
-  targetEndDate = rec.gevraagde_publicatiedatum
-  publicationEndDate = rec.publicatiedatum
+  proofing_start_date = rec.drukproef_aangevraagd
+  proofing_end_date = rec.drukproef_ontvangen
+  publication_start_date = rec.naar_BS_voor_publicatie
+  due_date = rec.limiet_publicatie
+  target_end_date = rec.gevraagde_publicatiedatum
+  publication_end_date = rec.publicatiedatum
 
-  subcase_start_date = proofingStartDate || get_dossier_date(rec)
-  subcase_end_date = publicationEndDate
+  subcase_start_date = proofing_start_date || get_dossier_date(rec)
+  subcase_end_date = publication_end_date
 
   publication_subcase_uuid = generate_uuid()
   subcase_uri = RDF::URI(BASE_URI % { :resource => 'procedurestap', :id => publication_subcase_uuid})
@@ -346,17 +346,17 @@ def create_publication_subcase(rec, data)
   $public_graph << RDF.Statement(subcase_uri, MU_CORE.uuid, publication_subcase_uuid)
   $public_graph << RDF.Statement(subcase_uri, DOSSIER['Procedurestap.startdatum'], subcase_start_date) if subcase_start_date
   $public_graph << RDF.Statement(subcase_uri, DOSSIER['Procedurestap.einddatum'], subcase_end_date) if subcase_end_date
-  $public_graph << RDF.Statement(subcase_uri, TMO.dueDate, dueDate) if dueDate
-  $public_graph << RDF.Statement(subcase_uri, TMO.targetEndTime, targetEndDate) if targetEndDate
+  $public_graph << RDF.Statement(subcase_uri, TMO.dueDate, due_date) if due_date
+  $public_graph << RDF.Statement(subcase_uri, TMO.targetEndTime, target_end_date) if target_end_date
   $public_graph << RDF.Statement(subcase_uri, DCT.source, DATASOURCE)
 
-  if proofingStartDate or proofingEndDate
+  if proofing_start_date or proofing_end_date
     proofing_request_activity_uuid = generate_uuid()
     proofing_request_activity_uri = RDF::URI(CONCEPT_URI % { :resource => 'aanvraag-activiteit', :id => proofing_request_activity_uuid})
     $public_graph << RDF.Statement(proofing_request_activity_uri, RDF.type, PUB.AanvraagActiviteit)
     $public_graph << RDF.Statement(proofing_request_activity_uri, MU_CORE.uuid, proofing_request_activity_uuid)
-    $public_graph << RDF.Statement(proofing_request_activity_uri, DOSSIER['Activiteit.startdatum'], proofingStartDate) if proofingStartDate
-    $public_graph << RDF.Statement(proofing_request_activity_uri, DOSSIER['Activiteit.einddatum'], proofingStartDate) if proofingStartDate
+    $public_graph << RDF.Statement(proofing_request_activity_uri, DOSSIER['Activiteit.startdatum'], proofing_start_date) if proofing_start_date
+    $public_graph << RDF.Statement(proofing_request_activity_uri, DOSSIER['Activiteit.einddatum'], proofing_start_date) if proofing_start_date
     $public_graph << RDF.Statement(proofing_request_activity_uri, PUB.aanvraagVindtPlaatsTijdensPublicatie, subcase_uri)
     $public_graph << RDF.Statement(proofing_request_activity_uri, DCT.source, DATASOURCE)
 
@@ -364,20 +364,20 @@ def create_publication_subcase(rec, data)
     proofing_activity_uri = RDF::URI(CONCEPT_URI % { :resource => 'drukproef-activiteit', :id => proofing_activity_uuid})
     $public_graph << RDF.Statement(proofing_activity_uri, RDF.type, PUB.DrukproefActiviteit)
     $public_graph << RDF.Statement(proofing_activity_uri, MU_CORE.uuid, proofing_activity_uuid)
-    $public_graph << RDF.Statement(proofing_activity_uri, DOSSIER['Activiteit.startdatum'], proofingStartDate) if proofingStartDate
-    $public_graph << RDF.Statement(proofing_activity_uri, DOSSIER['Activiteit.einddatum'], proofingEndDate) if proofingEndDate
+    $public_graph << RDF.Statement(proofing_activity_uri, DOSSIER['Activiteit.startdatum'], proofing_start_date) if proofing_start_date
+    $public_graph << RDF.Statement(proofing_activity_uri, DOSSIER['Activiteit.einddatum'], proofing_end_date) if proofing_end_date
     $public_graph << RDF.Statement(proofing_activity_uri, PUB.drukproefactiviteitVanAanvraag, proofing_request_activity_uri)
     $public_graph << RDF.Statement(proofing_activity_uri, PUB.drukproefVindtPlaatsTijdens, subcase_uri)
     $public_graph << RDF.Statement(proofing_activity_uri, DCT.source, DATASOURCE)
   end
 
-  if publicationStartDate or publicationEndDate
+  if publication_start_date or publication_end_date
     publication_request_activity_uuid = generate_uuid()
     publication_request_activity_uri = RDF::URI(CONCEPT_URI % { :resource => 'aanvraag-activiteit', :id => publication_request_activity_uuid})
     $public_graph << RDF.Statement(publication_request_activity_uri, RDF.type, PUB.AanvraagActiviteit)
     $public_graph << RDF.Statement(publication_request_activity_uri, MU_CORE.uuid, publication_request_activity_uuid)
-    $public_graph << RDF.Statement(publication_request_activity_uri, DOSSIER['Activiteit.startdatum'], publicationStartDate) if publicationStartDate
-    $public_graph << RDF.Statement(publication_request_activity_uri, DOSSIER['Activiteit.einddatum'], publicationStartDate) if publicationStartDate
+    $public_graph << RDF.Statement(publication_request_activity_uri, DOSSIER['Activiteit.startdatum'], publication_start_date) if publication_start_date
+    $public_graph << RDF.Statement(publication_request_activity_uri, DOSSIER['Activiteit.einddatum'], publication_start_date) if publication_start_date
     $public_graph << RDF.Statement(publication_request_activity_uri, PUB.aanvraagVindtPlaatsTijdensPublicatie, subcase_uri)
     $public_graph << RDF.Statement(publication_request_activity_uri, DCT.source, DATASOURCE)
 
@@ -385,13 +385,13 @@ def create_publication_subcase(rec, data)
     publication_activity_uri = RDF::URI(CONCEPT_URI % { :resource => 'publicatie-activiteit', :id => publication_activity_uuid})
     $public_graph << RDF.Statement(publication_activity_uri, RDF.type, PUB.PublicatieActiviteit)
     $public_graph << RDF.Statement(publication_activity_uri, MU_CORE.uuid, publication_activity_uuid)
-    $public_graph << RDF.Statement(publication_activity_uri, DOSSIER['Activiteit.startdatum'], publicationStartDate) if publicationStartDate
-    $public_graph << RDF.Statement(publication_activity_uri, DOSSIER['Activiteit.einddatum'], publicationEndDate) if publicationEndDate
+    $public_graph << RDF.Statement(publication_activity_uri, DOSSIER['Activiteit.startdatum'], publication_start_date) if publication_start_date
+    $public_graph << RDF.Statement(publication_activity_uri, DOSSIER['Activiteit.einddatum'], publication_end_date) if publication_end_date
     $public_graph << RDF.Statement(publication_activity_uri, PUB.publicatieactiviteitVanAanvraag, publication_request_activity_uri)
     $public_graph << RDF.Statement(publication_activity_uri, PUB.publicatieVindtPlaatsTijdens, subcase_uri)
 
     if data[:publication_status] === PUBLICATIE_STATUS_GEPUBLICEERD
-      decision_uri = create_decision publication_date: publicationEndDate
+      decision_uri = create_decision publication_date: publication_end_date
       $public_graph << RDF.Statement(publication_activity_uri, PROV.generated, decision_uri)
     end
 
