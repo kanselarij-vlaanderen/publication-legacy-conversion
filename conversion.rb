@@ -230,7 +230,7 @@ def create_identification(dossiernummer)
 end
 
 def create_structured_identifier(dossiernummer)
-  identificator = dossiernummer.match('(?<number>\d+)(?<version>[a-zA-Z0-9]*)')
+  identificator = dossiernummer.match('(?<number>\d+)(?<version>[a-zA-Z0-9]*)?')
   local_identificator = identificator[:number]
   version_identificator = identificator[:version]
 
@@ -239,7 +239,7 @@ def create_structured_identifier(dossiernummer)
   $public_graph << RDF.Statement(structured_identification_uri, RDF.type, GENERIEK.GestructureerdeIdentificator)
   $public_graph << RDF.Statement(structured_identification_uri, MU_CORE.uuid, uuid)
   $public_graph << RDF.Statement(structured_identification_uri, GENERIEK.lokaleIdentificator, local_identificator)
-  $public_graph << RDF.Statement(structured_identification_uri, GENERIEK.versieIdentificator, version_identificator) unless version_identificator.nil?
+  $public_graph << RDF.Statement(structured_identification_uri, GENERIEK.versieIdentificator, version_identificator) if version_identificator
   $public_graph << RDF.Statement(structured_identification_uri, DCT.source, DATASOURCE)
 
   structured_identification_uri
@@ -302,7 +302,7 @@ def create_translation_subcase(rec, data)
   $public_graph << RDF.Statement(subcase_uri, MU_CORE.uuid, uuid)
   $public_graph << RDF.Statement(subcase_uri, DOSSIER['Procedurestap.startdatum'], subcase_start_date) if subcase_start_date
   $public_graph << RDF.Statement(subcase_uri, DOSSIER['Procedurestap.einddatum'], subcase_end_date) if subcase_end_date
-  $public_graph << RDF.Statement(subcase_uri, TMO.dueDate, due_date) unless due_date.nil?
+  $public_graph << RDF.Statement(subcase_uri, TMO.dueDate, due_date) if due_date
   $public_graph << RDF.Statement(subcase_uri, DCT.source, DATASOURCE)
 
   if subcase_start_date or subcase_end_date or due_date
@@ -439,7 +439,7 @@ def set_publicationflow(data)
   $public_graph << RDF.Statement(publication_uri, ADMS.identifier, data[:identification])
   $public_graph << RDF.Statement(publication_uri, DOSSIER.behandelt, data[:caze])
   $public_graph << RDF.Statement(publication_uri, DCT.subject, data[:treatment])
-  $public_graph << RDF.Statement(publication_uri, DCT.alternative, data[:short_title]) unless data[:short_title].nil?
+  $public_graph << RDF.Statement(publication_uri, DCT.alternative, data[:short_title]) if data[:short_title]
   $public_graph << RDF.Statement(publication_uri, PUB.regelgevingType, data[:regulation_type]) if data[:regulation_type]
   $public_graph << RDF.Statement(publication_uri, PUB.publicatieWijze, data[:publication_mode]) if data[:publication_mode]
   # disabled: impossible to determine reference document with current data
