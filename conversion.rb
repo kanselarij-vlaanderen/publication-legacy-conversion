@@ -380,7 +380,7 @@ def create_translation_subcase(rec, data)
   due_date = rec.limiet_vertaling
 
   subcase_start_date = rec.vertaling_aangevraagd || get_dossier_date(rec)
-  subcase_end_date = activity_end_date || rec.publicatiedatum
+  subcase_end_date = rec.vertaling_ontvangen
 
   uuid = generate_uuid()
   subcase_uri = RDF::URI(BASE_URI % { :resource => 'procedurestap', :id => uuid})
