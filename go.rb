@@ -17,12 +17,12 @@ def take_and_skip nodes, size
   end
 end
 
-# require_relative './scripts/mandatees_in_access_db.rb'
-# require_relative './scripts/mandatees_in_linked_db.rb'
-# require_relative './scripts/fields.rb'
-# require_relative './scripts/beleidsdomeinen_in_access_db.rb'
-# require_relative './scripts/beleidsdomeinen_in_linked_db.rb'
+# require_relative './exploration-scripts/mandatees_in_access_db.rb'
+# require_relative './exploration-scripts/mandatees_in_linked_db.rb'
+# require_relative './exploration-scripts/fields.rb'
+# require_relative './exploration-scripts/beleidsdomeinen_in_access_db.rb'
+# require_relative './exploration-scripts/beleidsdomeinen_in_linked_db.rb'
 
 # nodes = AccessDB::nodes[(0...100)]
-# nodes = take_and_skip(AccessDB::nodes, 5000)
-# run(ENV["INPUT_DIR"], ENV["OUTPUT_DIR"], nodes)
+nodes = take_and_skip(AccessDB::nodes, 5000)
+run(ENV["INPUT_DIR"], ENV["OUTPUT_DIR"], nodes)
