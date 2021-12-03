@@ -1,5 +1,11 @@
 require 'linkeddata'
 
+class RDF::URI
+  def sparql_escape
+    "<#{self.to_s}>"
+  end
+end
+
 module LinkedDB
   def self.initialize
     @sparql_client = SinatraTemplate::Utils.sparql_client

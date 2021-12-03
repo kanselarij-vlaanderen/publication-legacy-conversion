@@ -3,6 +3,8 @@ require 'nokogiri'
 require_relative 'access_db.rb'
 require_relative 'linked_db.rb'
 require_relative 'query_mandatees.rb'
+require_relative 'query_reference_document.rb'
+require_relative 'convert_regulation_types.rb'
 
 BASE_URI = 'http://themis.vlaanderen.be/id/%{resource}/%{id}'
 CONCEPT_URI = 'http://themis.vlaanderen.be/id/concept/%{resource}/%{id}'
@@ -17,6 +19,7 @@ MANDAAT = RDF::Vocabulary.new("http://data.vlaanderen.be/ns/mandaat#")
 DOSSIER = RDF::Vocabulary.new("https://data.vlaanderen.be/ns/dossier#")
 BESLUIT = RDF::Vocabulary.new("http://data.vlaanderen.be/ns/besluit#")
 BESLUITVORMING = RDF::Vocabulary.new("http://data.vlaanderen.be/ns/besluitvorming#")
+ELI = RDF::Vocabulary.new("http://data.europa.eu/eli/ontology#")
 EXT = RDF::Vocabulary.new("http://mu.semte.ch/vocabularies/ext/")
 DCT = RDF::Vocabulary.new("http://purl.org/dc/terms/")
 TMO = RDF::Vocabulary.new("http://www.semanticdesktop.org/ontologies/2008/05/20/tmo#")
@@ -46,8 +49,6 @@ PUBLICATIE_STATUS_GEPUBLICEERD = RDF::URI "http://themis.vlaanderen.be/id/concep
 
 $public_graph = RDF::Graph.new
 
-$errors = Array.new
-
 def run(input_dir="/data/input/", output_dir="/data/output/", publicaties = nil)
   # By default, gets all publications from the access db. If "publicaties" is specified, only runs for those specific ones.
   log.info "[STARTED] Starting publication legacy conversion"
@@ -63,7 +64,7 @@ def run(input_dir="/data/input/", output_dir="/data/output/", publicaties = nil)
   error_output_file = "#{output_dir}#{file_timestamp}-#{error_output_file_name}"
 
   $errors_csv = CSV.open(
-    "#{output_dir}#{file_timestamp}-errors.csv", mode='wb')
+    "#{output_dir}#{file_timestamp}-errors.csv", mode="a+", encoding: "UTF-8")
   
   mandatees_corrections_path = File.join(__dir__, "configuration/mandatees-corrections.csv")    
   $query_mandatees = QueryMandatees.new(mandatees_corrections_path)
@@ -90,10 +91,8 @@ def run(input_dir="/data/input/", output_dir="/data/output/", publicaties = nil)
       log.info "[ONGOING] Writing generated data to files for records #{index-batch_size} until #{index}..."
       RDF::Writer.open("#{ttl_output_file}-#{batch_number}.ttl") { |writer| writer << $public_graph }
       File.open("#{ttl_output_file}-#{batch_number}.graph", "w+") { |f| f.puts(KANSELARIJ_GRAPH)}
-      File.open(error_output_file, "a+") { |f| f.puts($errors) }
       log.info "done"
       $public_graph = RDF::Graph.new
-      $errors = Array.new
       batch_number += 1
     end
   end
@@ -131,21 +130,13 @@ def process_publicatie(publicatie)
     rec = AccessDB::Record.new(publicatie)
 
     if opschrift.empty? and datum.empty? and document_nr.empty?
-      error = "ERROR: No sufficient data found for publication #{dossiernummer}"
-      if not error.nil?
-        log.info error
-        $errors << error
-      end
+      $errors_csv << [dossiernummer, "no-sufficient-data", "basic", opschrift, datum, document_nr]
       return
     end
 
     dossier_date = get_dossier_date rec
     if dossier_date.nil?
-      error = "ERROR: No date found for publication #{dossiernummer}"
-      if not error.nil?
-        log.info error
-        $errors << error
-      end
+      $errors_csv << [dossiernummer, "no-sufficient-data", "dates", datum, opdracht_formeel_ontvangen]
       return
     end
 
@@ -155,21 +146,7 @@ def process_publicatie(publicatie)
 
     mandatee_uris = $query_mandatees.query(rec)
 
-    reference_document_uri = nil
-    unless document_nr.empty?
-      documents = query_reference_document(dossiernummer, document_nr)
-      validate_result(documents, "Publication #{dossiernummer} query reference document #{document_nr}", true, true) unless documents.nil?
-      if documents and documents.length > 0
-        reference_document_uri = documents.first[:stukUri]
-        case_uri = documents.first[:caseUri]
-        treatment_uri = documents.first[:treatmentUri]
-        if reference_document_uri.nil? or case_uri.nil? or treatment_uri.nil?
-          $errors << "ERROR: no document, case or treatment found for publication #{dossiernummer} with document number '#{document_nr}'."
-        end
-      else
-        $errors << "ERROR: no document found for publication #{dossiernummer} with document number '#{document_nr}'."
-      end
-    end
+    reference_document_uri, case_uri, treatment_uri = QueryReferenceDocument.query(rec)
 
     if reference_document_uri.nil?
       case_uri = create_case(opschrift)
@@ -183,16 +160,13 @@ def process_publicatie(publicatie)
     remark << "opmerkingen: #{opmerkingen}" unless opmerkingen.empty?
     remark = remark.join("\n")
 
-    unless wijze_van_publicatie.empty?
-      mode = validate(map_mode(wijze_van_publicatie), "map mode #{dossiernummer} #{dossier_date}", wijze_van_publicatie)
-    end
-
-    regelgeving_type = validate(map_regelgeving_type(soort), "map regelgeving type #{dossiernummer}", soort)
+    publication_mode = get_publication_mode(rec)
+    regelgeving_type = ConvertRegulationTypes.convert(rec)
 
     publication_uri = create_publicationflow()
 
     publication_status = get_publication_status(rec)
-
+    
     translation_subcase = create_translation_subcase(
       rec,
       publication_uri: publication_uri,
@@ -206,7 +180,7 @@ def process_publicatie(publicatie)
 
     numac_number_uri = create_numac_number(werknummer_BS) unless werknummer_BS.empty?
 
-    $errors << "ERROR: No publication date found for publication #{dossiernummer}." if publicatiedatum.empty?
+    $errors_csv << [dossiernummer, "publication-date", "missing"] if publicatiedatum.empty?
 
     closing_date = rec.publicatiedatum
 
@@ -214,17 +188,17 @@ def process_publicatie(publicatie)
       publication_uri: publication_uri,
       identification: identification_uri,
       short_title: opschrift,
-      regulation_type: regelgeving_type,
       mandatees: mandatee_uris,
       reference_document: reference_document_uri,
       creation_date: dossier_date,
       opening_date: opening_date,
       closing_date: closing_date,
-      mode: mode,
+      regulation_type: regelgeving_type,
+      publication_mode: publication_mode,
       numac_number: numac_number_uri,
       remark: remark,
-      caze: case_uri,
       publication_status: publication_status,
+      caze: case_uri,
       treatment: treatment_uri,
       pages: aantal_bladzijden,
       document_number: document_nr,
@@ -256,7 +230,7 @@ def create_identification(dossiernummer)
 end
 
 def create_structured_identifier(dossiernummer)
-  identificator = dossiernummer.match('(?<number>\d+)(?<version>[a-zA-Z0-9]*)')
+  identificator = dossiernummer.match('(?<number>\d+)(?<version>[a-zA-Z0-9]*)?')
   local_identificator = identificator[:number]
   version_identificator = identificator[:version]
 
@@ -265,49 +239,10 @@ def create_structured_identifier(dossiernummer)
   $public_graph << RDF.Statement(structured_identification_uri, RDF.type, GENERIEK.GestructureerdeIdentificator)
   $public_graph << RDF.Statement(structured_identification_uri, MU_CORE.uuid, uuid)
   $public_graph << RDF.Statement(structured_identification_uri, GENERIEK.lokaleIdentificator, local_identificator)
-  $public_graph << RDF.Statement(structured_identification_uri, GENERIEK.versieIdentificator, version_identificator) unless version_identificator.nil?
+  $public_graph << RDF.Statement(structured_identification_uri, GENERIEK.versieIdentificator, version_identificator) if version_identificator
   $public_graph << RDF.Statement(structured_identification_uri, DCT.source, DATASOURCE)
 
   structured_identification_uri
-end
-
-def query_reference_document(dossiernummer, document_number)
-  # reformatting document number from e.g. from 'VR/96/09.07/0547' to VR 1996 0907 DOC.0547 /
-
-  titleParts = document_number.match('VR/(?<year>\d{2})/(?<day>[0-9]{2})\.(?<month>[0-9]{2})/(?<number>\d{4})')
-
-  if titleParts.nil?
-    error = "Error parsing document number '#{document_number} for publication #{dossiernummer}"
-    $errors_csv << [dossiernummer, document_number]
-    if not error.nil?
-      log.info error
-      $errors << error
-      return
-    end
-  end
-
-  year = titleParts[:year]
-  year4 = year.to_i < 30 ? "20" + year : "19" + year
-
-  docTitle = "VR #{year4} #{titleParts[:day]}#{titleParts[:month]} DOC.#{titleParts[:number]}"
-  medTitle = "VR #{year4} #{titleParts[:day]}#{titleParts[:month]} MED.#{titleParts[:number]}"
-  log.info "reformatting document_number '#{document_number}' into '#{docTitle}'"
-
-  query =  " SELECT ?stukUri ?caseUri ?treatmentUri WHERE {"
-  query += "   GRAPH <#{KANSELARIJ_GRAPH}> {"
-  query += "     ?treatmentUri a <#{BESLUIT.BehandelingVanAgendapunt}> ;"
-  query += "              <#{BESLUITVORMING.heeftOnderwerp}> ?agendaItem ."
-  query += "     ?agendaItem <#{BESLUITVORMING.geagendeerdStuk}> ?stukUri ."
-  query += "     ?caseUri a <#{DOSSIER.Dossier}> ;"
-  query += "              <#{DOSSIER['Dossier.bestaatUit']}> ?stukUri ."
-  query += "     ?stukUri a <#{DOSSIER.Stuk}> ;"
-  query += "              <#{DCT.title}> ?title ."
-  query += "   FILTER (strstarts(str(?title), ?titleValue) )"
-  query += "   VALUES ?titleValue  { '#{docTitle}' '#{medTitle}' }"
-  query += "   }"
-  query += " } ORDER BY ?title"
-
-  LinkedDB::query(query)
 end
 
 def create_case(title)
@@ -330,38 +265,17 @@ def create_treatment(data)
   treatment_uri
 end
 
-def map_regelgeving_type(soort)
-  case soort
-    when 'mb'
-      type = REGELGEVING_TYPE_MB
-    when 'bvr'
-      type = REGELGEVING_TYPE_BVR
-    when 'decreet'
-      type = REGELGEVING_TYPE_DECREET
-    when 'besluit dir.-gen.',
-         'besluit secr.-gen.',
-         'besluit raad van bestuur'
-      type = REGELGEVING_TYPE_BESLUIT
-    when 'omzendbrief'
-      type = REGELGEVING_TYPE_OMZENDBRIEF
-    when 'bericht'
-      type = REGELGEVING_TYPE_BERICHT
-    when 'kb'
-      type = REGELGEVING_TYPE_KB
-    when 'erratum'
-      type = REGELGEVING_TYPE_ERRATUM
-    else
-      type = REGELGEVING_TYPE_ANDERE
-  end
-  type
-end
-
-def map_mode(publicatie_wijze)
-  case publicatie_wijze
-    when 'uittreksel'
-      mode = PUBLICATIEWIJZE_UITTREKSEL
-    when 'extenso'
-      mode = PUBLICATIEWIJZE_EXTENSO
+def get_publication_mode(rec)
+  wijze = rec.wijze_van_publicatie
+  if wijze
+    wijze.strip!
+    wijze.downcase!
+    case wijze
+      when 'uittreksel'
+        mode = PUBLICATIEWIJZE_UITTREKSEL
+      when 'extenso'
+        mode = PUBLICATIEWIJZE_EXTENSO
+    end
   end
   mode
 end
@@ -386,9 +300,9 @@ def create_translation_subcase(rec, data)
   subcase_uri = RDF::URI(BASE_URI % { :resource => 'procedurestap', :id => uuid})
   $public_graph << RDF.Statement(subcase_uri, RDF.type, PUB.VertalingProcedurestap)
   $public_graph << RDF.Statement(subcase_uri, MU_CORE.uuid, uuid)
-  $public_graph << RDF.Statement(subcase_uri, DOSSIER['Procedurestap.startdatum'], subcase_start_date) if subcase_start_date
+  $public_graph << RDF.Statement(subcase_uri, DOSSIER['Procedurestap.startdatum'], subcase_start_date)
   $public_graph << RDF.Statement(subcase_uri, DOSSIER['Procedurestap.einddatum'], subcase_end_date) if subcase_end_date
-  $public_graph << RDF.Statement(subcase_uri, TMO.dueDate, due_date) unless due_date.nil?
+  $public_graph << RDF.Statement(subcase_uri, TMO.dueDate, due_date) if due_date
   $public_graph << RDF.Statement(subcase_uri, DCT.source, DATASOURCE)
 
   if subcase_start_date or subcase_end_date or due_date
@@ -397,7 +311,7 @@ def create_translation_subcase(rec, data)
     $public_graph << RDF.Statement(request_activity_uri, RDF.type, PUB.AanvraagActiviteit)
     $public_graph << RDF.Statement(request_activity_uri, MU_CORE.uuid, request_activity_uuid)
     $public_graph << RDF.Statement(request_activity_uri, DOSSIER['Activiteit.startdatum'], activity_start_date) if activity_start_date
-    $public_graph << RDF.Statement(request_activity_uri, DOSSIER['Activiteit.einddatum'], activity_end_date) if activity_end_date # request_activity.end_date == request_activity.start_date
+    $public_graph << RDF.Statement(request_activity_uri, DOSSIER['Activiteit.einddatum'], activity_end_date) if activity_end_date # request_activity.end_date == request_activity.start_date // Access DB does not contain end date
     $public_graph << RDF.Statement(request_activity_uri, PUB.aanvraagVindtPlaatsTijdensVertaling, subcase_uri)
     $public_graph << RDF.Statement(request_activity_uri, DCT.source, DATASOURCE)
 
@@ -416,33 +330,33 @@ def create_translation_subcase(rec, data)
 end
 
 def create_publication_subcase(rec, data)
-  proofingStartDate = rec.drukproef_aangevraagd
-  proofingEndDate = rec.drukproef_ontvangen
-  publicationStartDate = rec.naar_BS_voor_publicatie
-  dueDate = rec.limiet_publicatie
-  targetEndDate = rec.gevraagde_publicatiedatum
-  publicationEndDate = rec.publicatiedatum
+  proofing_start_date = rec.drukproef_aangevraagd
+  proofing_end_date = rec.drukproef_ontvangen
+  publication_start_date = rec.naar_BS_voor_publicatie
+  due_date = rec.limiet_publicatie
+  target_end_date = rec.gevraagde_publicatiedatum
+  publication_end_date = rec.publicatiedatum
 
-  subcase_start_date = proofingStartDate || get_dossier_date(rec)
-  subcase_end_date = publicationEndDate
+  subcase_start_date = rec.drukproef_aangevraagd || get_dossier_date(rec)
+  subcase_end_date = rec.publicatiedatum
 
   publication_subcase_uuid = generate_uuid()
   subcase_uri = RDF::URI(BASE_URI % { :resource => 'procedurestap', :id => publication_subcase_uuid})
   $public_graph << RDF.Statement(subcase_uri, RDF.type, PUB.PublicatieProcedurestap)
   $public_graph << RDF.Statement(subcase_uri, MU_CORE.uuid, publication_subcase_uuid)
-  $public_graph << RDF.Statement(subcase_uri, DOSSIER['Procedurestap.startdatum'], subcase_start_date) if subcase_start_date
+  $public_graph << RDF.Statement(subcase_uri, DOSSIER['Procedurestap.startdatum'], subcase_start_date)
   $public_graph << RDF.Statement(subcase_uri, DOSSIER['Procedurestap.einddatum'], subcase_end_date) if subcase_end_date
-  $public_graph << RDF.Statement(subcase_uri, TMO.dueDate, dueDate) if dueDate
-  $public_graph << RDF.Statement(subcase_uri, TMO.targetEndTime, targetEndDate) if targetEndDate
+  $public_graph << RDF.Statement(subcase_uri, TMO.dueDate, due_date) if due_date
+  $public_graph << RDF.Statement(subcase_uri, TMO.targetEndTime, target_end_date) if target_end_date
   $public_graph << RDF.Statement(subcase_uri, DCT.source, DATASOURCE)
 
-  if proofingStartDate or proofingEndDate
+  if proofing_start_date or proofing_end_date
     proofing_request_activity_uuid = generate_uuid()
     proofing_request_activity_uri = RDF::URI(CONCEPT_URI % { :resource => 'aanvraag-activiteit', :id => proofing_request_activity_uuid})
     $public_graph << RDF.Statement(proofing_request_activity_uri, RDF.type, PUB.AanvraagActiviteit)
     $public_graph << RDF.Statement(proofing_request_activity_uri, MU_CORE.uuid, proofing_request_activity_uuid)
-    $public_graph << RDF.Statement(proofing_request_activity_uri, DOSSIER['Activiteit.startdatum'], proofingStartDate) if proofingStartDate
-    $public_graph << RDF.Statement(proofing_request_activity_uri, DOSSIER['Activiteit.einddatum'], proofingStartDate) if proofingStartDate
+    $public_graph << RDF.Statement(proofing_request_activity_uri, DOSSIER['Activiteit.startdatum'], proofing_start_date) if proofing_start_date
+    $public_graph << RDF.Statement(proofing_request_activity_uri, DOSSIER['Activiteit.einddatum'], proofing_start_date) if proofing_start_date # request_activity.end_date == request_activity.start_date / Access DB does not contain end date
     $public_graph << RDF.Statement(proofing_request_activity_uri, PUB.aanvraagVindtPlaatsTijdensPublicatie, subcase_uri)
     $public_graph << RDF.Statement(proofing_request_activity_uri, DCT.source, DATASOURCE)
 
@@ -450,20 +364,20 @@ def create_publication_subcase(rec, data)
     proofing_activity_uri = RDF::URI(CONCEPT_URI % { :resource => 'drukproef-activiteit', :id => proofing_activity_uuid})
     $public_graph << RDF.Statement(proofing_activity_uri, RDF.type, PUB.DrukproefActiviteit)
     $public_graph << RDF.Statement(proofing_activity_uri, MU_CORE.uuid, proofing_activity_uuid)
-    $public_graph << RDF.Statement(proofing_activity_uri, DOSSIER['Activiteit.startdatum'], proofingStartDate) if proofingStartDate
-    $public_graph << RDF.Statement(proofing_activity_uri, DOSSIER['Activiteit.einddatum'], proofingEndDate) if proofingEndDate
+    $public_graph << RDF.Statement(proofing_activity_uri, DOSSIER['Activiteit.startdatum'], proofing_start_date) if proofing_start_date
+    $public_graph << RDF.Statement(proofing_activity_uri, DOSSIER['Activiteit.einddatum'], proofing_end_date) if proofing_end_date
     $public_graph << RDF.Statement(proofing_activity_uri, PUB.drukproefactiviteitVanAanvraag, proofing_request_activity_uri)
     $public_graph << RDF.Statement(proofing_activity_uri, PUB.drukproefVindtPlaatsTijdens, subcase_uri)
     $public_graph << RDF.Statement(proofing_activity_uri, DCT.source, DATASOURCE)
   end
 
-  if publicationStartDate or publicationEndDate
+  if publication_start_date or publication_end_date
     publication_request_activity_uuid = generate_uuid()
     publication_request_activity_uri = RDF::URI(CONCEPT_URI % { :resource => 'aanvraag-activiteit', :id => publication_request_activity_uuid})
     $public_graph << RDF.Statement(publication_request_activity_uri, RDF.type, PUB.AanvraagActiviteit)
     $public_graph << RDF.Statement(publication_request_activity_uri, MU_CORE.uuid, publication_request_activity_uuid)
-    $public_graph << RDF.Statement(publication_request_activity_uri, DOSSIER['Activiteit.startdatum'], publicationStartDate) if publicationStartDate
-    $public_graph << RDF.Statement(publication_request_activity_uri, DOSSIER['Activiteit.einddatum'], publicationStartDate) if publicationStartDate
+    $public_graph << RDF.Statement(publication_request_activity_uri, DOSSIER['Activiteit.startdatum'], publication_start_date) if publication_start_date
+    $public_graph << RDF.Statement(publication_request_activity_uri, DOSSIER['Activiteit.einddatum'], publication_start_date) if publication_start_date
     $public_graph << RDF.Statement(publication_request_activity_uri, PUB.aanvraagVindtPlaatsTijdensPublicatie, subcase_uri)
     $public_graph << RDF.Statement(publication_request_activity_uri, DCT.source, DATASOURCE)
 
@@ -471,13 +385,13 @@ def create_publication_subcase(rec, data)
     publication_activity_uri = RDF::URI(CONCEPT_URI % { :resource => 'publicatie-activiteit', :id => publication_activity_uuid})
     $public_graph << RDF.Statement(publication_activity_uri, RDF.type, PUB.PublicatieActiviteit)
     $public_graph << RDF.Statement(publication_activity_uri, MU_CORE.uuid, publication_activity_uuid)
-    $public_graph << RDF.Statement(publication_activity_uri, DOSSIER['Activiteit.startdatum'], publicationStartDate) if publicationStartDate
-    $public_graph << RDF.Statement(publication_activity_uri, DOSSIER['Activiteit.einddatum'], publicationEndDate) if publicationEndDate
+    $public_graph << RDF.Statement(publication_activity_uri, DOSSIER['Activiteit.startdatum'], publication_start_date) if publication_start_date
+    $public_graph << RDF.Statement(publication_activity_uri, DOSSIER['Activiteit.einddatum'], publication_end_date) if publication_end_date
     $public_graph << RDF.Statement(publication_activity_uri, PUB.publicatieactiviteitVanAanvraag, publication_request_activity_uri)
     $public_graph << RDF.Statement(publication_activity_uri, PUB.publicatieVindtPlaatsTijdens, subcase_uri)
 
     if data[:publication_status] === PUBLICATIE_STATUS_GEPUBLICEERD
-      decision_uri = create_decision publication_date: publicationEndDate
+      decision_uri = create_decision publication_date: publication_end_date
       $public_graph << RDF.Statement(publication_activity_uri, PROV.generated, decision_uri)
     end
 
@@ -521,20 +435,20 @@ end
 def set_publicationflow(data)
   publication_uri = data[:publication_uri]
 
-  $public_graph << RDF.Statement(publication_uri, ADMS.identifier, data[:identification]) unless data[:identification].nil?
-  $public_graph << RDF.Statement(publication_uri, DCT.alternative, data[:short_title]) unless data[:short_title].nil?
-  $public_graph << RDF.Statement(publication_uri, PUB.regelgevingType, data[:regulation_type]) unless data[:regulation_type].nil?
+  $public_graph << RDF.Statement(publication_uri, DCT.created, data[:creation_date])
+  $public_graph << RDF.Statement(publication_uri, ADMS.identifier, data[:identification])
+  $public_graph << RDF.Statement(publication_uri, DOSSIER.behandelt, data[:caze])
+  $public_graph << RDF.Statement(publication_uri, DCT.subject, data[:treatment])
+  $public_graph << RDF.Statement(publication_uri, DCT.alternative, data[:short_title]) if data[:short_title]
+  $public_graph << RDF.Statement(publication_uri, PUB.regelgevingType, data[:regulation_type]) if data[:regulation_type]
+  $public_graph << RDF.Statement(publication_uri, PUB.publicatieWijze, data[:publication_mode]) if data[:publication_mode]
   # disabled: impossible to determine reference document with current data
   # $public_graph << RDF.Statement(publication_uri, PUB.referentieDocument, data[:reference_document]) unless data[:reference_document].nil?
-  $public_graph << RDF.Statement(publication_uri, DCT.created, data[:creation_date]) if data[:creation_date]
-  $public_graph << RDF.Statement(publication_uri, PUB.publicatieWijze, data[:mode]) unless data[:mode].nil?
-  $public_graph << RDF.Statement(publication_uri, PUB.identifier, data[:numac_number]) unless data[:numac_number].nil?
-  $public_graph << RDF.Statement(publication_uri, RDFS.comment, data[:remark]) unless data[:remark].nil?
-  $public_graph << RDF.Statement(publication_uri, DOSSIER.behandelt, data[:caze]) unless data[:caze].nil?
-  $public_graph << RDF.Statement(publication_uri, DOSSIER.openingsdatum, data[:opening_date].to_date) if data[:opening_date]
-  $public_graph << RDF.Statement(publication_uri, DCT.subject, data[:treatment]) unless data[:treatment].nil?
-  $public_graph << RDF.Statement(publication_uri, EXT.legacyDocumentNumberMSAccess, data[:document_number]) unless data[:document_number].empty?
+  $public_graph << RDF.Statement(publication_uri, PUB.identifier, data[:numac_number]) if data[:numac_number]
+  $public_graph << RDF.Statement(publication_uri, RDFS.comment, data[:remark]) if data[:remark]
+  $public_graph << RDF.Statement(publication_uri, DOSSIER.openingsdatum, data[:opening_date].to_date)
   $public_graph << RDF.Statement(publication_uri, DOSSIER.sluitingsdatum, data[:closing_date].to_date) if data[:closing_date]
+  $public_graph << RDF.Statement(publication_uri, EXT.legacyDocumentNumberMSAccess, data[:document_number]) unless data[:document_number].empty?
 
   data[:mandatees].each do |mandatee|
     $public_graph << RDF.Statement(publication_uri, EXT.heeftBevoegdeVoorPublicatie, mandatee)
@@ -544,26 +458,4 @@ def set_publicationflow(data)
   # $public_graph << RDF.Statement(data[:reference_document], FABIO.hasPageCount, data[:pages]) unless (data[:reference_document].nil? or data[:pages].nil?)
 
   $public_graph << RDF.Statement(publication_uri, ADMS.status, data[:publication_status])
-end
-
-def validate_result(result, name, optional, exact)
-  error = nil
-  error = "ERROR: query '#{name}' returned #{result.length} results. Expected: 1" if (result.length > 1 && exact)
-  error = "ERROR: query '#{name}' returned no results. Expected: 1" if (!optional && result.length == 0)
-  error = "ERROR: query '#{name}' returned no results." if (!optional and not exact)
-  if not error.nil?
-    log.info error
-    $errors << error
-  end
-  result
-end
-
-def validate(result, name, value)
-  error = nil
-  error = "ERROR: '#{name}' for value '#{value}'." if result.nil? or result.to_s.empty?
-  if not error.nil?
-    log.info error
-    $errors << error
-  end
-  result
 end
