@@ -5,6 +5,7 @@ require_relative 'lib/linked_db.rb'
 require_relative 'lib/query_mandatees.rb'
 require_relative 'lib/query_reference_document.rb'
 require_relative 'lib/convert_regulation_types.rb'
+require_relative 'lib/convert_government_domains.rb'
 
 BASE_URI = 'http://themis.vlaanderen.be/id/%{resource}/%{id}'
 CONCEPT_URI = 'http://themis.vlaanderen.be/id/concept/%{resource}/%{id}'
@@ -149,7 +150,7 @@ def process_publicatie(publicatie)
     reference_document_uri, case_uri, treatment_uri = QueryReferenceDocument.query(rec)
 
     if reference_document_uri.nil?
-      case_uri = create_case(opschrift)
+      case_uri = create_case(title: opschrift)
       treatment_uri = create_treatment(start_date: dossier_date)
     end
 
@@ -162,6 +163,8 @@ def process_publicatie(publicatie)
 
     publication_mode = get_publication_mode(rec)
     regelgeving_type = ConvertRegulationTypes.convert(rec)
+
+    government_domain_uris = ConvertGovernmentDomains.convert rec
 
     publication_uri = create_publicationflow()
 
@@ -179,6 +182,11 @@ def process_publicatie(publicatie)
     )
 
     numac_number_uri = create_numac_number(werknummer_BS) unless werknummer_BS.empty?
+
+    set_case(
+      case_uri: case_uri,
+      government_domain_uris: government_domain_uris
+    )
 
     $errors_csv << [dossiernummer, "publication-date", "missing"] if publicatiedatum.empty?
 
@@ -245,14 +253,20 @@ def create_structured_identifier(dossiernummer)
   structured_identification_uri
 end
 
-def create_case(title)
+def create_case(data)
   uuid = generate_uuid()
   case_uri = RDF::URI(BASE_URI % { :resource => 'dossier', :id => uuid})
   $public_graph << RDF.Statement(case_uri, RDF.type, DOSSIER.Dossier)
   $public_graph << RDF.Statement(case_uri, MU_CORE.uuid, uuid)
-  $public_graph << RDF.Statement(case_uri, DCT.alternative, title)
+  $public_graph << RDF.Statement(case_uri, DCT.alternative, data[:title])
   $public_graph << RDF.Statement(case_uri, DCT.source, DATASOURCE)
   case_uri
+end
+
+def set_case(data)
+  data[:government_domain_uris].each do |government_domain_uri|
+    $public_graph << RDF.Statement(data[:case_uri], EXT.beleidsgebied, government_domain_uri)
+  end
 end
 
 def create_treatment(data)
