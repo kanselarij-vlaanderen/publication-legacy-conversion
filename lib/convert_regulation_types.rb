@@ -1,10 +1,8 @@
-require_relative 'files.rb'
-
 module ConvertRegulationTypes
   def self.initialize
-    mapping_keys_csv = Files.regulation_types_keys
+    mapping_keys_csv = Configuration::Files.regulation_types_keys
     @mapping_keys = mapping_keys_csv.to_h
-    mapping_uris_csv = Files.regulation_types_uris
+    mapping_uris_csv = Configuration::Files.regulation_types_uris
     @mapping_uris = mapping_uris_csv.to_h
   end
   initialize
@@ -22,7 +20,7 @@ module ConvertRegulationTypes
       end
       uri = @mapping_uris[key]
       if uri.nil?
-        raise Error("no URI for regulation type key #{key}")
+        raise StandardError.new "no URI for regulation type key #{key}"
       end
 
       return RDF::URI uri

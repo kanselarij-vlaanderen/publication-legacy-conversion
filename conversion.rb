@@ -1,5 +1,6 @@
 require 'linkeddata'
 require 'nokogiri'
+require_relative 'lib/configuration.rb'
 require_relative 'lib/access_db.rb'
 require_relative 'lib/linked_db.rb'
 require_relative 'lib/query_mandatees.rb'
