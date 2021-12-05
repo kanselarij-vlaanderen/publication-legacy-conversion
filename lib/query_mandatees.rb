@@ -4,6 +4,7 @@ class QueryMandatees
     @replacements = replacements.to_h
   end
 
+  # @return [Array] always returns an array (empty if no results)
   def query rec
     bevoegde_ministers = rec.bevoegde_ministers
   
