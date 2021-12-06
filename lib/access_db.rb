@@ -85,7 +85,7 @@ module AccessDB
     end
   
     def method_missing name_sym
-      AccessDB::field(@record_node, name_sym)
+      AccessDB.field(@record_node, name_sym)
     end
   end
 end
