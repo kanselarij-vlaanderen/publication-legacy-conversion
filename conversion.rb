@@ -51,7 +51,7 @@ PUBLICATIE_STATUS_GEPUBLICEERD = RDF::URI "http://themis.vlaanderen.be/id/concep
 
 $public_graph = RDF::Graph.new
 
-def run(input_dir="/data/input/", output_dir="/data/output/", publicaties = nil)
+def run(input_dir="/data/input/", output_dir="/data/output/", publicaties=nil)
   # By default, gets all publications from the access db. If "publicaties" is specified, only runs for those specific ones.
   log.info "[STARTED] Starting publication legacy conversion"
 
@@ -81,7 +81,7 @@ def run(input_dir="/data/input/", output_dir="/data/output/", publicaties = nil)
   publications_length = publicaties.size
 
   publicaties.each_with_index do |publicatie, index|
-    process_publicatie publicatie if index > start
+    process_publicatie publicatie, index, publications_length if index > start
 
     if index > 0 and index <= start and index % batch_size == 0
       log.info "[ONGOING] Skipping records #{index-batch_size} until #{index}..."
@@ -100,9 +100,10 @@ def run(input_dir="/data/input/", output_dir="/data/output/", publicaties = nil)
 
 end
 
-def process_publicatie(publicatie)
-  dossiernummer = publicatie.css('dossiernummer').text || ""
-  log.info "Processing dossiernummer #{dossiernummer}... "
+def process_publicatie(publicatie, index, total)
+    dossiernummer = publicatie.css('dossiernummer').text || ""
+    index1 = index + 1
+    log.info "Processing dossiernummer #{dossiernummer} (#{index1}/#{total}) ... "
 
     opschrift =  publicatie.css('opschrift').text || ""
     datum = publicatie.css('datum').text || ""
