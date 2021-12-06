@@ -1,4 +1,4 @@
-module ConvertRegulationTypes
+module ConvertRegulationType
   def self.initialize
     mapping_keys_csv = Configuration::Files.regulation_types_keys
     @mapping_keys = mapping_keys_csv.to_h

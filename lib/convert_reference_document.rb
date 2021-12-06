@@ -1,4 +1,4 @@
-module QueryReferenceDocument
+module ConvertReferenceDocument
   def self.initialize
     pattern = 'VR/(?<year>\d{2})/(?<day>[0-9]{2})\.(?<month>[0-9]{2})(?<type>med|doc|dec)?[/.-]? ?(?<number>\d{4})(?<version>[a-z]{1,3})?'
     @regexp = Regexp.new pattern, true
@@ -32,7 +32,7 @@ module QueryReferenceDocument
     return type.map { |t| [t, "VR #{year4} #{title_parts[:day]}#{title_parts[:month]} #{t}.#{title_parts[:number]}"] }
   end
 
-  def self.query rec
+  def self.convert rec
     candidate_titles = prepare rec
 
     if candidate_titles.nil?

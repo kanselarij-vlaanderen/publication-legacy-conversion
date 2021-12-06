@@ -16,7 +16,13 @@ module Configuration
       path = File.join(__dir__, "../configuration/government-domains.csv")
       # relative path does not work in Docker container because of different working directory
       return CSV.open path, "rt", encoding: "UTF-8" # otherwise Ruby 2.5 assumes ASCII
-    end  
+    end
+  
+    def self.mandatees_corrections
+      path = File.join(__dir__, "../configuration/mandatees-corrections.csv")
+      # relative path does not work in Docker container because of different working directory
+      return CSV.open path, "rt", encoding: "UTF-8" # otherwise Ruby 2.5 assumes ASCII
+    end
   end
 
   module Environment

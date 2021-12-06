@@ -3,9 +3,9 @@ require 'nokogiri'
 require_relative 'lib/configuration.rb'
 require_relative 'lib/access_db.rb'
 require_relative 'lib/linked_db.rb'
-require_relative 'lib/query_mandatees.rb'
-require_relative 'lib/query_reference_document.rb'
-require_relative 'lib/convert_regulation_types.rb'
+require_relative 'lib/convert_mandatees.rb'
+require_relative 'lib/convert_reference_document.rb'
+require_relative 'lib/convert_regulation_type.rb'
 require_relative 'lib/convert_government_domains.rb'
 
 BASE_URI = 'http://themis.vlaanderen.be/id/%{resource}/%{id}'
@@ -68,9 +68,6 @@ def run(input_dir="/data/input/", output_dir="/data/output/", publicaties = nil)
   $errors_csv = CSV.open(
     "#{output_dir}#{file_timestamp}-errors.csv", mode="a+", encoding: "UTF-8")
   
-  mandatees_corrections_path = File.join(__dir__, "configuration/mandatees-corrections.csv")    
-  $query_mandatees = QueryMandatees.new(mandatees_corrections_path)
-
   log.info "-- Input file : #{legacy_input_file}"
   log.info "-- Output file : #{ttl_output_file}"
 
@@ -146,9 +143,9 @@ def process_publicatie(publicatie)
 
     identification_uri = create_identification(dossiernummer)
 
-    mandatee_uris = $query_mandatees.query(rec)
+    mandatee_uris = ConvertMandatees.convert(rec)
 
-    reference_document_uri, case_uri, treatment_uri = QueryReferenceDocument.query(rec)
+    reference_document_uri, case_uri, treatment_uri = ConvertReferenceDocument.convert(rec)
 
     if reference_document_uri.nil?
       case_uri = create_case(title: opschrift)
@@ -163,7 +160,7 @@ def process_publicatie(publicatie)
     remark = remark.join("\n")
 
     publication_mode = get_publication_mode(rec)
-    regelgeving_type = ConvertRegulationTypes.convert(rec)
+    regelgeving_type = ConvertRegulationType.convert(rec)
 
     government_domain_uris = ConvertGovernmentDomains.convert rec
 

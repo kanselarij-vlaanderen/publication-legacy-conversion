@@ -1,6 +1,6 @@
 GOVERNMENT_DOMAIN_CONCEPT_SCHEME_URI = RDF::URI 'http://themis.vlaanderen.be/id/concept-schema/f4981a92-8639-4da4-b1e3-0e1371feaa81'
 
-class ConvertGovernmentDomains
+module ConvertGovernmentDomains
   def self.initialize ()  
     abbreviations_to_label = Configuration::Files.government_domains.map { |row| 
       [row[0].downcase, row[1]]
@@ -35,7 +35,9 @@ class ConvertGovernmentDomains
     }
 
     triples = LinkedDB.query query
+
     @abbreviations_to_uri = triples.map { |tri| [tri[:abbreviation].value, tri[:uri]] } .to_h
+
     missing_government_domains = abbreviations_to_label.select { |key, value| !@abbreviations_to_uri[key]}
     if not missing_government_domains.empty?
       if Configuration::Environment.safe
