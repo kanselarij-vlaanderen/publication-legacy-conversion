@@ -101,8 +101,8 @@ def run(input_dir="/data/input/", output_dir="/data/output/", publicaties = nil)
 end
 
 def process_publicatie(publicatie)
-    dossiernummer = publicatie.css('dossiernummer').text || ""
-    log.info "Processing dossiernummer #{dossiernummer}... "
+  dossiernummer = publicatie.css('dossiernummer').text || ""
+  log.info "Processing dossiernummer #{dossiernummer}... "
 
     opschrift =  publicatie.css('opschrift').text || ""
     datum = publicatie.css('datum').text || ""
@@ -156,6 +156,15 @@ def process_publicatie(publicatie)
     remark << "trefwoord: #{trefwoord}" unless trefwoord.empty?
     remark << "opdrachtgever: #{opdrachtgever}" unless opdrachtgever.empty?
     remark << "aantal bladzijden: #{aantal_bladzijden}" unless aantal_bladzijden.empty?
+    if rec.vertaling_ontvangen
+      translation_end_date_str = rec.vertaling_ontvangen.strftime "%d/%m/%Y"
+      remark << "vertaling ontvangen: #{ translation_end_date_str }"
+    end
+    if rec.drukproef_ontvangen
+      proofing_end_date_str = rec.drukproef_ontvangen.strftime "%d/%m/%Y"
+      remark << "drukproef ontvangen: #{ proofing_end_date_str }"
+    end
+
     remark << "opmerkingen: #{opmerkingen}" unless opmerkingen.empty?
     remark = remark.join("\n")
 
