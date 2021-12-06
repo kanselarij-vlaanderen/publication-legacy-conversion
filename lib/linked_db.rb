@@ -20,7 +20,7 @@ module LinkedDB
     (1..max_tries).each do |try|
       begin
         return @sparql_client.query query
-      rescue Net::HTTP::Persistent::Error => x
+      rescue => x
         if try === max_tries
           raise x
         end
