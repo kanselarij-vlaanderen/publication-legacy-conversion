@@ -1,63 +1,104 @@
-GOVERNMENT_DOMAIN_CONCEPT_SCHEME_URI = RDF::URI 'http://themis.vlaanderen.be/id/concept-schema/f4981a92-8639-4da4-b1e3-0e1371feaa81'
-
 module ConvertGovernmentDomains
-  def self.initialize ()  
-    abbreviations_to_label = Configuration::Files.government_domains.map { |row| 
-      [row[0].downcase, row[1]]
-    } .to_h
-    
-    abbreviations_to_label_sparql = abbreviations_to_label.map { |abbr, label|
-      "(#{abbr.sparql_escape} #{label.sparql_escape})"
-    } .join " "
+  def self.initialize
+    @mapping = setup_mapping
+    @ignore_set = setup_ignore_set
+  end
 
+  def self.setup_mapping
+    mapping_keys_csv = Configuration::Files.government_domains_keys.to_h
+    mapping_uris_csv = Configuration::Files.government_domains_uris.to_h
+    return mapping_keys_csv.map do |key, mapping_key|
+      uri_str = mapping_uris_csv[mapping_key]
+      uri = RDF::URI uri_str
+      [key, uri]
+    end .to_h
+  end
+
+  def self.setup_ignore_set
+    ignore_csv = Configuration::Files.government_domains_ignore
+    ignore_list = ignore_csv.map { |row| row[0] }
+    @ignore_set = Set.new ignore_list
+  end
+
+  def self.validate publication_records
+    uris = @mapping.values.uniq
+    records = query_mapping_label @mapping
+    csv = Configuration::Output.government_domains
+    records.each do |r|
+      if r[2]
+        label = r[2][:label]
+      end
+      csv << [r[0], r[1], label]
+    end
+
+    if records.any? { |r| !r[2][:label] }
+      raise StandardError.new "Incorrect govenment domain mapping"
+    end
+
+    beleidsdomeinen = publication_records.flat_map { |r| prepare r }.uniq
+    not_found = beleidsdomeinen.select { |it|
+      @mapping[it].nil? && !@ignore_set.include?(it)
+    }
+    if not_found.any?
+      raise StandardError.new "Unknown govenment domains #{ not_found.join "," }"
+    end
+  end
+
+  def self.query_mapping_label mapping
+    uris = mapping.map { |k, v| v } .uniq
+    uri_to_record = uris.map do |uri|
+      record = query uri
+      [uri, record]
+    end .to_h
+
+    return mapping.map do |k, uri|
+      [k, uri, uri_to_record[uri]]
+    end
+  end
+
+  def self.query uri
     query = %{
       PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
 
-      SELECT ?abbreviation ?uri
+      SELECT ?label
       WHERE {
         GRAPH <http://mu.semte.ch/graphs/public> {
-          VALUES (?abbreviation ?label_in) {
-            #{ abbreviations_to_label_sparql }
-          }
+          BIND (#{ uri.sparql_escape } AS ?uri)
 
-          OPTIONAL {
-            ?uri a skos:Concept .
-            ?uri skos:topConceptOf #{ GOVERNMENT_DOMAIN_CONCEPT_SCHEME_URI.sparql_escape } .
-            ?uri skos:prefLabel ?label .
-          }
-
-          FILTER (
-              (REPLACE(LCASE(REPLACE(REPLACE(?label,    #{ '[^\w\s]'.sparql_escape }, ""), #{ '\s+'.sparql_escape }, " ")), " en ", " "))
-            = (REPLACE(LCASE(REPLACE(REPLACE(?label_in, #{ '[^\w\s]'.sparql_escape }, ""), #{ '\s+'.sparql_escape }, " ")), " en ", " "))
-          )
+          ?uri a skos:Concept .
+          ?uri skos:topConceptOf <http://themis.vlaanderen.be/id/concept-schema/f4981a92-8639-4da4-b1e3-0e1371feaa81> . # Beleidsdomeinen
+          ?uri skos:prefLabel ?label .
         }
       }
     }
-
     triples = LinkedDB.query query
-
-    @abbreviations_to_uri = triples.map { |tri| [tri[:abbreviation].value, tri[:uri]] } .to_h
-
-    missing_government_domains = abbreviations_to_label.select { |key, value| !@abbreviations_to_uri[key]}
-    if not missing_government_domains.empty?
-      if Configuration::Environment.safe
-        raise StandardError.new "Government domains could not be found: #{missing_government_domains}"
-      end
+    if triples.length > 1
+      raise StandardError.new "Unexpected number of results for uri <#{uri}>"
     end
-  end
-  initialize
 
-  # @return [Array] always returns an array (empty if no results)
-  def self.convert rec
+    if triples.first
+      return { label: triples.first[:label].value }
+    else
+      return nil
+    end
+
+  end
+
+  def self.prepare rec
     beleidsdomein = rec.beleidsdomein
     
     return [] if beleidsdomein.nil?
 
     beleidsdomeinen = beleidsdomein.split '/'
     beleidsdomeinen.each { |d| d.strip!; d.downcase! }
+  end
+
+  # @return [Array] always returns an array (empty if no results)
+  def self.convert rec
+    beleidsdomeinen = prepare rec
 
     return beleidsdomeinen.flat_map do |d|
-      uri = @abbreviations_to_uri[d]
+      uri = @mapping[d]
       if uri.nil?
         $errors_csv << [rec.dossiernummer, "government-domain", "not-found", d]
         next []
@@ -66,4 +107,6 @@ module ConvertGovernmentDomains
       next uri
     end
   end
+
+  initialize
 end

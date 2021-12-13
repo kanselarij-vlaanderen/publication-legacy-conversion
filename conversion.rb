@@ -55,6 +55,10 @@ def run(input_dir="/data/input/", output_dir="/data/output/", publicaties = nil)
   # By default, gets all publications from the access db. If "publicaties" is specified, only runs for those specific ones.
   log.info "[STARTED] Starting publication legacy conversion"
 
+  publicaties = AccessDB.nodes if publicaties.nil?
+
+  ConvertGovernmentDomains.validate publicaties.map { |n| AccessDB.record n }
+
   legacy_input_file_name = "legacy_data.xml"
   legacy_input_file = "#{input_dir}#{legacy_input_file_name}"
 
@@ -70,8 +74,6 @@ def run(input_dir="/data/input/", output_dir="/data/output/", publicaties = nil)
   
   log.info "-- Input file : #{legacy_input_file}"
   log.info "-- Output file : #{ttl_output_file}"
-
-  publicaties = AccessDB.nodes if publicaties.nil?
 
   log.info "graph: #{graph}"
 
