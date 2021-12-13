@@ -16,13 +16,39 @@ module ConvertGovernmentDomains
 
   def self.setup_ignore_set
     ignore_csv = Configuration::Files.government_domains_ignore
-    ignore_list = ignore_csv.map { |row| row[0] }
-    @ignore_set = Set.new ignore_list
+    ignore_list = ignore_csv.to_a.flatten
+    Set.new ignore_list
   end
 
   def self.validate publication_records
-    uris = @mapping.values.uniq
-    records = query_mapping_label @mapping
+    validate_mapping @mapping
+    validate_entries publication_records
+  end
+
+  def self.validate_mapping mapping
+    records = query_mapping mapping
+    
+    export_mapping records
+
+    not_found = records.select { |r| r[2].nil? }
+    if !not_found.empty?
+      raise StandardError.new "Incorrect government domain mapping"
+    end
+  end
+
+  def self.validate_entries publication_records
+    beleidsdomeinen = publication_records.flat_map { |r| prepare r }.uniq
+    not_found = beleidsdomeinen.select do |domein|
+      not_found = !(@mapping.include? domein)
+      required = !(@ignore_set === domein)
+      next not_found && required
+    end
+    if !not_found.empty?
+      raise StandardError.new "Unknown govenment domains: #{ not_found.join "," }"
+    end
+  end
+
+  def self.export_mapping records
     csv = Configuration::Output.government_domains
     records.each do |r|
       if r[2]
@@ -30,22 +56,10 @@ module ConvertGovernmentDomains
       end
       csv << [r[0], r[1], label]
     end
-
-    if records.any? { |r| !r[2][:label] }
-      raise StandardError.new "Incorrect govenment domain mapping"
-    end
-
-    beleidsdomeinen = publication_records.flat_map { |r| prepare r }.uniq
-    not_found = beleidsdomeinen.select { |it|
-      @mapping[it].nil? && !@ignore_set.include?(it)
-    }
-    if not_found.any?
-      raise StandardError.new "Unknown govenment domains #{ not_found.join "," }"
-    end
   end
 
-  def self.query_mapping_label mapping
-    uris = mapping.map { |k, v| v } .uniq
+  def self.query_mapping mapping
+    uris = mapping.values.uniq
     uri_to_record = uris.map do |uri|
       record = query uri
       [uri, record]
