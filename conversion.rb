@@ -451,8 +451,7 @@ def set_publicationflow(data)
   $public_graph << RDF.Statement(publication_uri, DCT.alternative, data[:short_title]) if data[:short_title]
   $public_graph << RDF.Statement(publication_uri, PUB.regelgevingType, data[:regulation_type]) if data[:regulation_type]
   $public_graph << RDF.Statement(publication_uri, PUB.publicatieWijze, data[:publication_mode]) if data[:publication_mode]
-  # disabled: impossible to determine reference document with current data
-  # $public_graph << RDF.Statement(publication_uri, PUB.referentieDocument, data[:reference_document]) unless data[:reference_document].nil?
+  $public_graph << RDF.Statement(publication_uri, PUB.referentieDocument, data[:reference_document]) unless data[:reference_document].nil?
   $public_graph << RDF.Statement(publication_uri, PUB.identifier, data[:numac_number]) if data[:numac_number]
   $public_graph << RDF.Statement(publication_uri, RDFS.comment, data[:remark]) if data[:remark]
   $public_graph << RDF.Statement(publication_uri, DOSSIER.openingsdatum, data[:opening_date].to_date)
@@ -463,8 +462,7 @@ def set_publicationflow(data)
     $public_graph << RDF.Statement(publication_uri, EXT.heeftBevoegdeVoorPublicatie, mandatee)
   end
 
-  # disabled: impossible to determine reference document with current data
-  # $public_graph << RDF.Statement(data[:reference_document], FABIO.hasPageCount, data[:pages]) unless (data[:reference_document].nil? or data[:pages].nil?)
+  $public_graph << RDF.Statement(data[:reference_document], FABIO.hasPageCount, data[:pages]) unless (data[:reference_document].nil? or data[:pages].nil?)
 
   $public_graph << RDF.Statement(publication_uri, ADMS.status, data[:publication_status])
 end
