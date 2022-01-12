@@ -1,5 +1,5 @@
 keys = AccessDB::FIELDS.keys
-CSV.open('./records.csv', 'wb') do |csv|
+CSV.open('./records.csv', 'wt', encoding: 'UTF-8') do |csv|
   csv << keys
   AccessDB.nodes
     .each do |r|

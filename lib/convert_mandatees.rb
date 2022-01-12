@@ -1,10 +1,12 @@
-class QueryMandatees
-  def initialize corrections_file_path
-    replacements = CSV.read corrections_file_path,  'rt', encoding: 'UTF-8' # otherwise Ruby 2.5 assumes ASCII
+module ConvertMandatees
+  def self.initialize
+    replacements = Configuration::Files.mandatees_corrections
     @replacements = replacements.to_h
   end
+  initialize
 
-  def query rec
+  # @return [Array] always returns an array (empty if no results)
+  def self.convert rec
     bevoegde_ministers = rec.bevoegde_ministers
   
     return [] if bevoegde_ministers.nil?
@@ -76,7 +78,7 @@ class QueryMandatees
   end
 
   private
-  def process_mandatee_results rec, minister, mandatees_results
+  def self.process_mandatee_results rec, minister, mandatees_results
     dossier_date = get_dossier_date rec
 
     if mandatees_results.length == 0

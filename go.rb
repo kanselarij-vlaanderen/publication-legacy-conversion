@@ -8,21 +8,20 @@ MU_CORE = RDF::Vocabulary.new(MU.to_uri.to_s + 'core/')
 
 require_relative 'conversion.rb'
 
-def take_and_skip nodes, size
+def take_and_skip nodes, count
   i = 0
   return nodes.select do
-    take = i % size === 0
+    take = i % count === 0
     i = i + 1
     take
   end
 end
 
-# require_relative './scripts/mandatees_in_access_db.rb'
-# require_relative './scripts/mandatees_in_linked_db.rb'
-# require_relative './scripts/fields.rb'
-# require_relative './scripts/beleidsdomeinen_in_access_db.rb'
-# require_relative './scripts/beleidsdomeinen_in_linked_db.rb'
 
+# require_relative './exploration-scripts/fields.rb'
+
+# some ways to select AccessDB records
 # nodes = AccessDB::nodes[(0...100)]
-# nodes = take_and_skip(AccessDB::nodes, 5000)
-# run(ENV["INPUT_DIR"], ENV["OUTPUT_DIR"], nodes)
+nodes = take_and_skip(AccessDB::nodes, 5000)
+# nodes = AccessDB.by_dossiernummer(["53001"])
+run(ENV["INPUT_DIR"], ENV["OUTPUT_DIR"], nodes)

@@ -1,6 +1,4 @@
-require_relative '../query_reference_document.rb'
-
-query_reference_document = QueryReferenceDocument.new
+require_relative '../convert_reference_document.rb'
 
 records = AccessDB.records
 
@@ -10,7 +8,7 @@ i = 0
 records.each do |rec|
   next if !rec.datum && !rec.opdracht_formeel_ontvangen
 
-  query_reference_document.query(rec)
+  ConvertReferenceDocument.convert(rec)
 end
 
 $errors_csv.close

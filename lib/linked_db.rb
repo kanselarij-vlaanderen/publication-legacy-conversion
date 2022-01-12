@@ -14,11 +14,13 @@ module LinkedDB
 
   BASE_BACKOFF_SECONDS = 1
   def self.query(query)
+    log.debug(query)
+    
     max_tries = 5
     (1..max_tries).each do |try|
       begin
         return @sparql_client.query query
-      rescue Net::HTTP::Persistent::Error => x
+      rescue => x
         if try === max_tries
           raise x
         end

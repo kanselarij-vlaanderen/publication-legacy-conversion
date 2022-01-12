@@ -36,9 +36,8 @@ module AccessDB
     dossiernummers
       .lazy
       .map { |dossiernummer|
-        node = @doc.xpath("//Dossieropvolging/dossiernummer[.=\"#{dossiernummer}\"]")[0].parent
+        @doc.xpath("//Dossieropvolging/dossiernummer[.=\"#{dossiernummer}\"]")[0].parent
       }
-      .map { |n| record(n) }
   end
 
   def self.nodes()
@@ -86,7 +85,7 @@ module AccessDB
     end
   
     def method_missing name_sym
-      AccessDB::field(@record_node, name_sym)
+      AccessDB.field(@record_node, name_sym)
     end
   end
 end

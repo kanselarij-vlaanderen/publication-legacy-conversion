@@ -1,10 +1,12 @@
 require 'linkeddata'
 require 'nokogiri'
-require_relative 'access_db.rb'
-require_relative 'linked_db.rb'
-require_relative 'query_mandatees.rb'
-require_relative 'query_reference_document.rb'
-require_relative 'convert_regulation_types.rb'
+require_relative 'lib/configuration.rb'
+require_relative 'lib/access_db.rb'
+require_relative 'lib/linked_db.rb'
+require_relative 'lib/convert_mandatees.rb'
+require_relative 'lib/convert_reference_document.rb'
+require_relative 'lib/convert_regulation_type.rb'
+require_relative 'lib/convert_government_domains.rb'
 
 BASE_URI = 'http://themis.vlaanderen.be/id/%{resource}/%{id}'
 CONCEPT_URI = 'http://themis.vlaanderen.be/id/concept/%{resource}/%{id}'
@@ -53,6 +55,10 @@ def run(input_dir="/data/input/", output_dir="/data/output/", publicaties = nil)
   # By default, gets all publications from the access db. If "publicaties" is specified, only runs for those specific ones.
   log.info "[STARTED] Starting publication legacy conversion"
 
+  publicaties = AccessDB.nodes if publicaties.nil?
+
+  ConvertGovernmentDomains.validate publicaties.map { |n| AccessDB.record n }
+
   legacy_input_file_name = "legacy_data.xml"
   legacy_input_file = "#{input_dir}#{legacy_input_file_name}"
 
@@ -66,13 +72,8 @@ def run(input_dir="/data/input/", output_dir="/data/output/", publicaties = nil)
   $errors_csv = CSV.open(
     "#{output_dir}#{file_timestamp}-errors.csv", mode="a+", encoding: "UTF-8")
   
-  mandatees_corrections_path = File.join(__dir__, "configuration/mandatees-corrections.csv")    
-  $query_mandatees = QueryMandatees.new(mandatees_corrections_path)
-
   log.info "-- Input file : #{legacy_input_file}"
   log.info "-- Output file : #{ttl_output_file}"
-
-  publicaties = AccessDB.nodes if publicaties.nil?
 
   log.info "graph: #{graph}"
 
@@ -144,12 +145,12 @@ def process_publicatie(publicatie)
 
     identification_uri = create_identification(dossiernummer)
 
-    mandatee_uris = $query_mandatees.query(rec)
+    mandatee_uris = ConvertMandatees.convert(rec)
 
-    reference_document_uri, case_uri, treatment_uri = QueryReferenceDocument.query(rec)
+    reference_document_uri, case_uri, treatment_uri = ConvertReferenceDocument.convert(rec)
 
     if reference_document_uri.nil?
-      case_uri = create_case(opschrift)
+      case_uri = create_case(title: opschrift)
       treatment_uri = create_treatment(start_date: dossier_date)
     end
 
@@ -161,7 +162,9 @@ def process_publicatie(publicatie)
     remark = remark.join("\n")
 
     publication_mode = get_publication_mode(rec)
-    regelgeving_type = ConvertRegulationTypes.convert(rec)
+    regelgeving_type = ConvertRegulationType.convert(rec)
+
+    government_domain_uris = ConvertGovernmentDomains.convert rec
 
     publication_uri = create_publicationflow()
 
@@ -179,6 +182,11 @@ def process_publicatie(publicatie)
     )
 
     numac_number_uri = create_numac_number(werknummer_BS) unless werknummer_BS.empty?
+
+    set_case(
+      case_uri: case_uri,
+      government_domain_uris: government_domain_uris
+    )
 
     $errors_csv << [dossiernummer, "publication-date", "missing"] if publicatiedatum.empty?
 
@@ -245,14 +253,20 @@ def create_structured_identifier(dossiernummer)
   structured_identification_uri
 end
 
-def create_case(title)
+def create_case(data)
   uuid = generate_uuid()
   case_uri = RDF::URI(BASE_URI % { :resource => 'dossier', :id => uuid})
   $public_graph << RDF.Statement(case_uri, RDF.type, DOSSIER.Dossier)
   $public_graph << RDF.Statement(case_uri, MU_CORE.uuid, uuid)
-  $public_graph << RDF.Statement(case_uri, DCT.alternative, title)
+  $public_graph << RDF.Statement(case_uri, DCT.alternative, data[:title])
   $public_graph << RDF.Statement(case_uri, DCT.source, DATASOURCE)
   case_uri
+end
+
+def set_case(data)
+  data[:government_domain_uris].each do |government_domain_uri|
+    $public_graph << RDF.Statement(data[:case_uri], EXT.beleidsgebied, government_domain_uri)
+  end
 end
 
 def create_treatment(data)
@@ -294,7 +308,7 @@ def create_translation_subcase(rec, data)
   due_date = rec.limiet_vertaling
 
   subcase_start_date = rec.vertaling_aangevraagd || get_dossier_date(rec)
-  subcase_end_date = rec.vertaling_ontvangen || rec.publicatiedatum
+  subcase_end_date = rec.vertaling_ontvangen
 
   uuid = generate_uuid()
   subcase_uri = RDF::URI(BASE_URI % { :resource => 'procedurestap', :id => uuid})

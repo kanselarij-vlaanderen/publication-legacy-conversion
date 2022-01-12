@@ -3,7 +3,7 @@ require 'ostruct'
 module RegulationTypes
   def self.run display=false
 
-    keys_csv = Files.regulation_types_keys
+    keys_csv = Configuration::Files.regulation_types_keys
     types = keys_csv.map { |r| r[0] }
 
     types.each do |t|
