@@ -440,6 +440,16 @@ def create_publicationflow()
   publication_uri
 end
 
+def create_publication_status_change data
+  uuid = generate_uuid()
+  activity_uri = RDF::URI(BASE_URI % { :resource => 'publicatie-status-wijziging', :id => uuid})
+  $public_graph << RDF.Statement(activity_uri, RDF.type, PUB.PublicatieStatusWijziging)
+  $public_graph << RDF.Statement(activity_uri, MU_CORE.uuid, uuid)
+  $public_graph << RDF.Statement(activity_uri, PROV.startedAtTime, data[:date])
+
+  activity_uri
+end
+
 def set_publicationflow(data)
   publication_uri = data[:publication_uri]
 
@@ -464,4 +474,12 @@ def set_publicationflow(data)
   $public_graph << RDF.Statement(data[:reference_document], FABIO.hasPageCount, data[:pages]) unless (data[:reference_document].nil? or data[:pages].nil?)
 
   $public_graph << RDF.Statement(publication_uri, ADMS.status, data[:publication_status])
+
+  if data[:publication_status] === PUBLICATIE_STATUS_GEPUBLICEERD
+    status_change_uri = create_publication_status_change date: data[:closing_date] if data[:closing_date]
+    $public_graph << RDF.Statement(data[:publication_uri], PROV.hadActivity, status_change_uri)
+  else
+    status_change_uri = create_publication_status_change date: data[:opening_date]
+    $public_graph << RDF.Statement(data[:publication_uri], PROV.hadActivity, status_change_uri)
+  end
 end
