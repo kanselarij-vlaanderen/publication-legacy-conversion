@@ -51,7 +51,7 @@ PUBLICATIE_STATUS_GEPUBLICEERD = RDF::URI "http://themis.vlaanderen.be/id/concep
 
 $public_graph = RDF::Graph.new
 
-def run(input_dir="/data/input/", output_dir="/data/output/", publicaties = nil)
+def run(input_dir="/data/input/", output_dir="/data/output/", publicaties=nil)
   # By default, gets all publications from the access db. If "publicaties" is specified, only runs for those specific ones.
   log.info "[STARTED] Starting publication legacy conversion"
 
@@ -83,7 +83,7 @@ def run(input_dir="/data/input/", output_dir="/data/output/", publicaties = nil)
   publications_length = publicaties.size
 
   publicaties.each_with_index do |publicatie, index|
-    process_publicatie publicatie if index > start
+    process_publicatie publicatie, index, publications_length if index > start
 
     if index > 0 and index <= start and index % batch_size == 0
       log.info "[ONGOING] Skipping records #{index-batch_size} until #{index}..."
@@ -102,9 +102,10 @@ def run(input_dir="/data/input/", output_dir="/data/output/", publicaties = nil)
 
 end
 
-def process_publicatie(publicatie)
+def process_publicatie(publicatie, index, total)
     dossiernummer = publicatie.css('dossiernummer').text || ""
-    log.info "Processing dossiernummer #{dossiernummer}... "
+    index1 = index + 1
+    log.info "Processing dossiernummer #{dossiernummer} (#{index1}/#{total}) ... "
 
     opschrift =  publicatie.css('opschrift').text || ""
     datum = publicatie.css('datum').text || ""
@@ -158,6 +159,15 @@ def process_publicatie(publicatie)
     remark << "trefwoord: #{trefwoord}" unless trefwoord.empty?
     remark << "opdrachtgever: #{opdrachtgever}" unless opdrachtgever.empty?
     remark << "aantal bladzijden: #{aantal_bladzijden}" unless aantal_bladzijden.empty?
+    if rec.vertaling_ontvangen
+      translation_end_date_str = rec.vertaling_ontvangen.strftime "%d/%m/%Y"
+      remark << "vertaling ontvangen: #{ translation_end_date_str }"
+    end
+    if rec.drukproef_ontvangen
+      proofing_end_date_str = rec.drukproef_ontvangen.strftime "%d/%m/%Y"
+      remark << "drukproef ontvangen: #{ proofing_end_date_str }"
+    end
+
     remark << "opmerkingen: #{opmerkingen}" unless opmerkingen.empty?
     remark = remark.join("\n")
 
