@@ -41,7 +41,7 @@ module AccessDB
   end
 
   def self.nodes()
-    return @doc.xpath('//Dossieropvolging')
+    @doc.xpath('//Dossieropvolging')
   end
 
   def self.records(range = nil)
