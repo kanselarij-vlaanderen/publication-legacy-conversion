@@ -1,18 +1,15 @@
 require_relative './conversion.rb'
 
-get '/ingest' do
-  run()
-  
-  status 200
-end
-
 post '/ingest' do
   range = params['range']&.split(',')&.map { |s| s.to_i }
+  take = params['take']&.to_i
   if range
     records = AccessDB.nodes[(range[0]..range[1])]
+  elsif take
+    records = AccessDB.nodes.select.with_index { |_, i| i % take === 0 }
   end
 
-  run("/data/input/", "/data/output/", records)
-  
+  run(records)
+
   status 200
 end

@@ -42,7 +42,6 @@ REGELGEVING_TYPE_ERRATUM = RDF::URI "http://themis.vlaanderen.be/id/concept/rege
 REGELGEVING_TYPE_ANDERE = RDF::URI "http://themis.vlaanderen.be/id/concept/regelgeving-type/0916ac88-1a96-4e6b-a87b-b7f6dd4d9652";
 
 KANSELARIJ_GRAPH = "http://mu.semte.ch/graphs/organizations/kanselarij"
-MINISTERS_GRAPH = "http://mu.semte.ch/graphs/ministers"
 
 DATASOURCE = RDF::URI "http://vlaanderen.be/dossier-opvolging-access-db/DOSSIEROPVOLGING-H.xml"
 
@@ -51,47 +50,36 @@ PUBLICATIE_STATUS_GEPUBLICEERD = RDF::URI "http://themis.vlaanderen.be/id/concep
 
 $public_graph = RDF::Graph.new
 
-def run(input_dir="/data/input/", output_dir="/data/output/", publicaties=nil)
-  # By default, gets all publications from the access db. If "publicaties" is specified, only runs for those specific ones.
+def run(publicaties = nil)
   log.info "[STARTED] Starting publication legacy conversion"
-
   publicaties = AccessDB.nodes if publicaties.nil?
 
   ConvertGovernmentDomains.validate publicaties.map { |n| AccessDB.record n }
 
-  legacy_input_file_name = "legacy_data.xml"
-  legacy_input_file = "#{input_dir}#{legacy_input_file_name}"
-
   file_timestamp = DateTime.now.strftime("%Y%m%d%H%M%S")
-
   ttl_output_file_name = "import-legacy-publications"
-  ttl_output_file = "#{output_dir}#{file_timestamp}-#{ttl_output_file_name}"
+  ttl_output_file = "#{ENV["OUTPUT_DIR"]}/#{file_timestamp}-#{ttl_output_file_name}"
   error_output_file_name = "errors.txt"
-  error_output_file = "#{output_dir}#{file_timestamp}-#{error_output_file_name}"
+  error_output_file = "#{ENV["OUTPUT_DIR"]}/#{file_timestamp}-#{error_output_file_name}"
 
   $errors_csv = CSV.open(
-    "#{output_dir}#{file_timestamp}-errors.csv", mode="a+", encoding: "UTF-8")
-  
-  log.info "-- Input file : #{legacy_input_file}"
+    "#{ENV["OUTPUT_DIR"]}#{file_timestamp}-errors.csv", mode="a+", encoding: "UTF-8")
+
+  log.info "-- Input file : #{AccessDB.input_file}"
   log.info "-- Output file : #{ttl_output_file}"
 
-  log.info "graph: #{graph}"
-
-  start = -1
   batch_number = 1
   batch_size = 1000
-  publications_length = publicaties.size
-
   publicaties.each_with_index do |publicatie, index|
-    process_publicatie publicatie, index, publications_length if index > start
+    dossiernummer = publicatie.css('dossiernummer').text
+    log.info "Processing dossiernummer #{dossiernummer} (#{index + 1}/#{publicaties.size}) ... "
+    process_publicatie publicatie
+    log.info "Processing dossiernummer #{dossiernummer} DONE."
 
-    if index > 0 and index <= start and index % batch_size == 0
-      log.info "[ONGOING] Skipping records #{index-batch_size} until #{index}..."
-    end
-    if (index > 0 and index > start and index % batch_size == 0) or index == publications_length -1
-      log.info "[ONGOING] Writing generated data to files for records #{index-batch_size} until #{index}..."
+    if (index > 0 and index % batch_size == 0) or index == publicaties.size - 1
+      log.info "[ONGOING] Writing generated data to file for records #{(batch_number - 1) * batch_size + 1} until #{[batch_number * batch_size, index + 1].min}..."
       RDF::Writer.open("#{ttl_output_file}-#{batch_number}.ttl") { |writer| writer << $public_graph }
-      File.open("#{ttl_output_file}-#{batch_number}.graph", "w+") { |f| f.puts(KANSELARIJ_GRAPH)}
+      File.open("#{ttl_output_file}-#{batch_number}.graph", "w+") { |f| f.puts(KANSELARIJ_GRAPH) }
       log.info "done"
       $public_graph = RDF::Graph.new
       batch_number += 1
@@ -102,11 +90,8 @@ def run(input_dir="/data/input/", output_dir="/data/output/", publicaties=nil)
 
 end
 
-def process_publicatie(publicatie, index, total)
+def process_publicatie(publicatie)
     dossiernummer = publicatie.css('dossiernummer').text || ""
-    index1 = index + 1
-    log.info "Processing dossiernummer #{dossiernummer} (#{index1}/#{total}) ... "
-
     opschrift =  publicatie.css('opschrift').text || ""
     datum = publicatie.css('datum').text || ""
     soort = publicatie.css('soort').text || ""
@@ -179,7 +164,7 @@ def process_publicatie(publicatie, index, total)
     publication_uri = create_publicationflow()
 
     publication_status = get_publication_status(rec)
-    
+
     translation_subcase = create_translation_subcase(
       rec,
       publication_uri: publication_uri,
@@ -221,7 +206,6 @@ def process_publicatie(publicatie, index, total)
       pages: aantal_bladzijden,
       document_number: document_nr,
     )
-    log.info "Processing dossiernummer #{dossiernummer} DONE."
 end
 
 def get_dossier_date rec
@@ -466,8 +450,7 @@ def set_publicationflow(data)
   $public_graph << RDF.Statement(publication_uri, DCT.alternative, data[:short_title]) if data[:short_title]
   $public_graph << RDF.Statement(publication_uri, PUB.regelgevingType, data[:regulation_type]) if data[:regulation_type]
   $public_graph << RDF.Statement(publication_uri, PUB.publicatieWijze, data[:publication_mode]) if data[:publication_mode]
-  # disabled: impossible to determine reference document with current data
-  # $public_graph << RDF.Statement(publication_uri, PUB.referentieDocument, data[:reference_document]) unless data[:reference_document].nil?
+  $public_graph << RDF.Statement(publication_uri, PUB.referentieDocument, data[:reference_document]) unless data[:reference_document].nil?
   $public_graph << RDF.Statement(publication_uri, PUB.identifier, data[:numac_number]) if data[:numac_number]
   $public_graph << RDF.Statement(publication_uri, RDFS.comment, data[:remark]) if data[:remark]
   $public_graph << RDF.Statement(publication_uri, DOSSIER.openingsdatum, data[:opening_date].to_date)
@@ -478,8 +461,7 @@ def set_publicationflow(data)
     $public_graph << RDF.Statement(publication_uri, EXT.heeftBevoegdeVoorPublicatie, mandatee)
   end
 
-  # disabled: impossible to determine reference document with current data
-  # $public_graph << RDF.Statement(data[:reference_document], FABIO.hasPageCount, data[:pages]) unless (data[:reference_document].nil? or data[:pages].nil?)
+  $public_graph << RDF.Statement(data[:reference_document], FABIO.hasPageCount, data[:pages]) unless (data[:reference_document].nil? or data[:pages].nil?)
 
   $public_graph << RDF.Statement(publication_uri, ADMS.status, data[:publication_status])
 end

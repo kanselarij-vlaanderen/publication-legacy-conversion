@@ -26,11 +26,15 @@ module AccessDB
   }
 
   def self.initialize
-    input_dir = ENV["INPUT_DIR"] || "/data/input"
-    input_file = File.join(input_dir, "legacy_data.xml")
-    @doc = Nokogiri::XML(File.open(input_file)) { |c| c.noblanks }
+    input_dir = ENV["INPUT_DIR"]
+    @input_file = File.join(input_dir, "legacy_data.xml")
+    @doc = Nokogiri::XML(File.open(@input_file)) { |c| c.noblanks }
   end
   initialize
+
+  def self.input_file
+    @input_file
+  end
 
   def self.by_dossiernummer(dossiernummers)
     dossiernummers
@@ -41,7 +45,7 @@ module AccessDB
   end
 
   def self.nodes()
-    return @doc.xpath('//Dossieropvolging')
+    @doc.xpath('//Dossieropvolging')
   end
 
   def self.records(range = nil)
@@ -50,7 +54,7 @@ module AccessDB
     if !range.nil?
       records = records[range]
     end
-    
+
     records
       .lazy
       .map { |n| record(n) }
@@ -59,7 +63,7 @@ module AccessDB
   def self.record(node)
     Record.new node
   end
-  
+
   def self.field(n, name)
     field = AccessDB::FIELDS[name]
     if !field
@@ -83,7 +87,7 @@ module AccessDB
     def initialize(record_node)
       @record_node = record_node
     end
-  
+
     def method_missing name_sym
       AccessDB.field(@record_node, name_sym)
     end
