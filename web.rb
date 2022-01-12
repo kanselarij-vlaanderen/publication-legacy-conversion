@@ -6,7 +6,7 @@ post '/ingest' do
     records = AccessDB.nodes[(range[0]..range[1])]
   end
 
-  run("/data/input/", "/data/output/", records)
+  run(records)
 
   status 200
 end

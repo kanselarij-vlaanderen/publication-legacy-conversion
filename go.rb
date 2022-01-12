@@ -24,4 +24,4 @@ end
 # nodes = AccessDB::nodes[(0...100)]
 nodes = take_and_skip(AccessDB::nodes, 5000)
 # nodes = AccessDB.by_dossiernummer(["53001"])
-run(ENV["INPUT_DIR"], ENV["OUTPUT_DIR"], nodes)
+run(nodes)

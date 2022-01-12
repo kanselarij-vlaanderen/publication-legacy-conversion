@@ -51,23 +51,23 @@ PUBLICATIE_STATUS_GEPUBLICEERD = RDF::URI "http://themis.vlaanderen.be/id/concep
 
 $public_graph = RDF::Graph.new
 
-def run(input_dir="/data/input/", output_dir="/data/output/", publicaties=nil)
+def run(publicaties = nil)
   # By default, gets all publications from the access db. If "publicaties" is specified, only runs for those specific ones.
   log.info "[STARTED] Starting publication legacy conversion"
 
   legacy_input_file_name = "legacy_data.xml"
-  legacy_input_file = "#{input_dir}#{legacy_input_file_name}"
+  legacy_input_file = "#{ENV["INPUT_DIR"]}#{legacy_input_file_name}"
 
   file_timestamp = DateTime.now.strftime("%Y%m%d%H%M%S")
 
   ttl_output_file_name = "import-legacy-publications"
-  ttl_output_file = "#{output_dir}#{file_timestamp}-#{ttl_output_file_name}"
+  ttl_output_file = "#{ENV["OUTPUT_DIR"]}#{file_timestamp}-#{ttl_output_file_name}"
   error_output_file_name = "errors.txt"
-  error_output_file = "#{output_dir}#{file_timestamp}-#{error_output_file_name}"
+  error_output_file = "#{ENV["OUTPUT_DIR"]}#{file_timestamp}-#{error_output_file_name}"
 
   $errors_csv = CSV.open(
-    "#{output_dir}#{file_timestamp}-errors.csv", mode="a+", encoding: "UTF-8")
-  
+    "#{ENV["OUTPUT_DIR"]}#{file_timestamp}-errors.csv", mode="a+", encoding: "UTF-8")
+
   log.info "-- Input file : #{legacy_input_file}"
   log.info "-- Output file : #{ttl_output_file}"
 
@@ -177,7 +177,7 @@ def process_publicatie(publicatie, index, total)
     publication_uri = create_publicationflow()
 
     publication_status = get_publication_status(rec)
-    
+
     translation_subcase = create_translation_subcase(
       rec,
       publication_uri: publication_uri,

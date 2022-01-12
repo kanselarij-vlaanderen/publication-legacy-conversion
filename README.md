@@ -18,6 +18,9 @@ Add the service to your `docker-compose.yml`:
       - 8888:80
     links:
       - database:database
+    environment:
+      INPUT_DIR: "/data/input"
+      OUTPUT_DIR: "/data/output"
     volumes:
       - ./data/input/legacy_data.xml:/data/input/legacy_data.xml
       - ./data/output/:/data/output/
