@@ -26,7 +26,7 @@ Add the service to your `docker-compose.yml`:
     volumes:
       - ./path/to/your/code:/app
       - ./data/input:/data/input
-      - ./data/output/:/data/output/
+      - ./data/output/:/data/output
 ```
 
 The mounted volume `./data/input` is the location where the input data is expected to be.
