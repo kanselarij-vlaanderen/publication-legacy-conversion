@@ -69,23 +69,18 @@ def run(publicaties = nil)
 
   publicaties = AccessDB.nodes if publicaties.nil?
 
-  log.info "graph: #{graph}"
-
-  start = -1
   batch_number = 1
   batch_size = 1000
-  publications_length = publicaties.size
-
   publicaties.each_with_index do |publicatie, index|
-    process_publicatie publicatie, index, publications_length if index > start
+    dossiernummer = publicatie.css('dossiernummer').text
+    log.info "Processing dossiernummer #{dossiernummer} (#{index + 1}/#{publicaties.size}) ... "
+    process_publicatie publicatie
+    log.info "Processing dossiernummer #{dossiernummer} DONE."
 
-    if index > 0 and index <= start and index % batch_size == 0
-      log.info "[ONGOING] Skipping records #{index-batch_size} until #{index}..."
-    end
-    if (index > 0 and index > start and index % batch_size == 0) or index == publications_length -1
-      log.info "[ONGOING] Writing generated data to files for records #{index-batch_size} until #{index}..."
+    if (index > 0 and index % batch_size == 0) or index == publicaties.size - 1
+      log.info "[ONGOING] Writing generated data to file for records #{(batch_number - 1) * batch_size + 1} until #{[batch_number * batch_size, index + 1].min}..."
       RDF::Writer.open("#{ttl_output_file}-#{batch_number}.ttl") { |writer| writer << $public_graph }
-      File.open("#{ttl_output_file}-#{batch_number}.graph", "w+") { |f| f.puts(KANSELARIJ_GRAPH)}
+      File.open("#{ttl_output_file}-#{batch_number}.graph", "w+") { |f| f.puts(KANSELARIJ_GRAPH) }
       log.info "done"
       $public_graph = RDF::Graph.new
       batch_number += 1
@@ -96,11 +91,8 @@ def run(publicaties = nil)
 
 end
 
-def process_publicatie(publicatie, index, total)
+def process_publicatie(publicatie)
     dossiernummer = publicatie.css('dossiernummer').text || ""
-    index1 = index + 1
-    log.info "Processing dossiernummer #{dossiernummer} (#{index1}/#{total}) ... "
-
     opschrift =  publicatie.css('opschrift').text || ""
     datum = publicatie.css('datum').text || ""
     soort = publicatie.css('soort').text || ""
@@ -215,7 +207,6 @@ def process_publicatie(publicatie, index, total)
       pages: aantal_bladzijden,
       document_number: document_nr,
     )
-    log.info "Processing dossiernummer #{dossiernummer} DONE."
 end
 
 def get_dossier_date rec
