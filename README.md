@@ -36,6 +36,8 @@ contains the errors encountered during the conversion
 ## Reference
 ### API
 ```
-POST /ingest
+POST /ingest?range=startId,endId
 ```
-Endpoint to start a conversion
+Endpoint to start a conversion.
+
+A `range` query param can optionally be specified to run the conversion only on a subset of publications from the Access DB.
