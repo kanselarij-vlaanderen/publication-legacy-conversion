@@ -42,7 +42,6 @@ REGELGEVING_TYPE_ERRATUM = RDF::URI "http://themis.vlaanderen.be/id/concept/rege
 REGELGEVING_TYPE_ANDERE = RDF::URI "http://themis.vlaanderen.be/id/concept/regelgeving-type/0916ac88-1a96-4e6b-a87b-b7f6dd4d9652";
 
 KANSELARIJ_GRAPH = "http://mu.semte.ch/graphs/organizations/kanselarij"
-MINISTERS_GRAPH = "http://mu.semte.ch/graphs/ministers"
 
 DATASOURCE = RDF::URI "http://vlaanderen.be/dossier-opvolging-access-db/DOSSIEROPVOLGING-H.xml"
 

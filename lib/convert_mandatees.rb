@@ -1,3 +1,5 @@
+MINISTERS_GRAPH = "http://mu.semte.ch/graphs/public"
+
 module ConvertMandatees
   def self.initialize
     replacements = Configuration::Files.mandatees_corrections
@@ -8,16 +10,16 @@ module ConvertMandatees
   # @return [Array] always returns an array (empty if no results)
   def self.convert rec
     bevoegde_ministers = rec.bevoegde_ministers
-  
+
     return [] if bevoegde_ministers.nil?
-  
+
     dossier_date = get_dossier_date rec
     dossier_date_escaped = dossier_date.sparql_escape
-  
+
     if bevoegde_ministers === "allen"
       query = %{
         SELECT ?mandateeUri ?title ?person WHERE {
-          GRAPH <http://mu.semte.ch/graphs/ministers> {
+          GRAPH <#{MINISTERS_GRAPH}> {
             ?mandateeUri <http://data.vlaanderen.be/ns/mandaat#isBestuurlijkeAliasVan> ?person .
             ?mandateeUri a <http://data.vlaanderen.be/ns/mandaat#Mandataris> ;
                         <http://data.vlaanderen.be/ns/mandaat#start> ?start .
@@ -30,30 +32,30 @@ module ConvertMandatees
       }
 
       mandatees_results = LinkedDB.query(query)
-  
+
       grouped_mandatees = mandatees_results.group_by { |it| it[:person] }
-      mandatees = grouped_mandatees.flat_map { |k, mandatee_results| process_mandatee_results(rec, bevoegde_ministers, mandatee_results) } 
+      mandatees = grouped_mandatees.flat_map { |k, mandatee_results| process_mandatee_results(rec, bevoegde_ministers, mandatee_results) }
 
       return mandatees
     else
       bevoegde_ministers = bevoegde_ministers.split('/')
         .map(&:strip).map(&:downcase)
         .map { |minister| @replacements.fetch minister, minister }
-  
+
       mandatees = bevoegde_ministers.flat_map do |minister|
         minister_escaped = sparql_escape_string(minister)
-  
+
         query = %{
           PREFIX mandaat: <http://data.vlaanderen.be/ns/mandaat#>
-          PREFIX foaf: <http://xmlns.com/foaf/0.1/> 
+          PREFIX foaf: <http://xmlns.com/foaf/0.1/>
           PREFIX dct: <http://purl.org/dc/terms/>
-  
+
           SELECT ?mandateeUri ?title
           WHERE {
-              GRAPH <http://mu.semte.ch/graphs/ministers>
+              GRAPH <#{MINISTERS_GRAPH}>
               {
                 ?mandateeUri a mandaat:Mandataris .
-            
+
                 ?mandateeUri mandaat:isBestuurlijkeAliasVan ?person .
                 ?mandateeUri mandaat:start ?start .
                 OPTIONAL { ?mandateeUri mandaat:einde ?end . }
@@ -66,9 +68,9 @@ module ConvertMandatees
             }
           }
         }
-  
+
         mandatees_results = LinkedDB::query(query)
-        
+
         mandatees = process_mandatee_results rec, minister, mandatees_results.to_a
         return mandatees
       end
@@ -91,7 +93,7 @@ module ConvertMandatees
       mandatee_result = mandatees_results_title.first
       if mandatees_results_title.length > 1
         $errors_csv << [rec.dossiernummer, "mandatee", "found-multiple", minister, dossier_date, mandatee_result[:mandateeUri].value]
-      end  
+      end
     else
       mandatee_result = mandatees_results.first
       if mandatees_results.length > 1

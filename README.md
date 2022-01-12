@@ -5,24 +5,27 @@
 - The expected input is an xml dump containing MS Access data from Dossieropvolging
 - The input file should be named `legacy_data.xml`
 
-- The Kanselarij data is expected to be in the graph  `<http://mu.semte.ch/graphs/organizations/kanselarij>`
-- The Themis minister data should be in the graph  `<http://mu.semte.ch/graphs/ministers>`
+- The Kanselarij data is expected to be in the graph `<http://mu.semte.ch/graphs/organizations/kanselarij>`
+- The Themis minister data should be in the graph `<http://mu.semte.ch/graphs/public>`
 
 ### Add the service to a stack
 Add the service to your `docker-compose.yml`:
 
 ```
   publication-legacy-conversion:
-    image: semtech/mu-ruby-template:2.11.0
+    image: semtech/mu-ruby-template:latest
     ports:
       - 8888:80
     links:
-      - database:database
+      - triplestore:database
     environment:
       INPUT_DIR: "/data/input"
       OUTPUT_DIR: "/data/output"
+      RACK_ENV: "development"
+      LOG_LEVEL: "debug"
     volumes:
-      - ./data/input/legacy_data.xml:/data/input/legacy_data.xml
+      - ./path/to/your/code:/app
+      - ./data/input:/data/input
       - ./data/output/:/data/output/
 ```
 
