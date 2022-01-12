@@ -19,8 +19,6 @@ Add the service to your `docker-compose.yml`:
     links:
       - triplestore:database
     environment:
-      INPUT_DIR: "/data/input"
-      OUTPUT_DIR: "/data/output"
       RACK_ENV: "development"
       LOG_LEVEL: "debug"
     volumes:

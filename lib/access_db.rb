@@ -26,7 +26,7 @@ module AccessDB
   }
 
   def self.initialize
-    input_dir = ENV["INPUT_DIR"]
+    input_dir = Configuration::Environment.input_dir
     @input_file = File.join(input_dir, "legacy_data.xml")
     @doc = Nokogiri::XML(File.open(@input_file)) { |c| c.noblanks }
   end

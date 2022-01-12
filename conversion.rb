@@ -58,12 +58,12 @@ def run(publicaties = nil)
 
   file_timestamp = DateTime.now.strftime("%Y%m%d%H%M%S")
   ttl_output_file_name = "import-legacy-publications"
-  ttl_output_file = "#{ENV["OUTPUT_DIR"]}/#{file_timestamp}-#{ttl_output_file_name}"
+  ttl_output_file = "#{Configuration::Environment.output_dir}/#{file_timestamp}-#{ttl_output_file_name}"
   error_output_file_name = "errors.txt"
-  error_output_file = "#{ENV["OUTPUT_DIR"]}/#{file_timestamp}-#{error_output_file_name}"
+  error_output_file = "#{Configuration::Environment.output_dir}/#{file_timestamp}-#{error_output_file_name}"
 
   $errors_csv = CSV.open(
-    "#{ENV["OUTPUT_DIR"]}#{file_timestamp}-errors.csv", mode="a+", encoding: "UTF-8")
+    "#{Configuration::Environment.output_dir}/#{file_timestamp}-errors.csv", mode="a+", encoding: "UTF-8")
 
   log.info "-- Input file : #{AccessDB.input_file}"
   log.info "-- Output file : #{ttl_output_file}"
