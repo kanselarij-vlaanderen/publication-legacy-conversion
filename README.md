@@ -13,16 +13,10 @@ Add the service to your `docker-compose.yml`:
 
 ```
   publication-legacy-conversion:
-    image: semtech/mu-ruby-template:latest
-    ports:
-      - 8888:80
+    image: kanselarij/publication-legacy-conversion
     links:
       - triplestore:database
-    environment:
-      RACK_ENV: "development"
-      LOG_LEVEL: "debug"
     volumes:
-      - ./path/to/your/code:/app
       - ./data/input:/data/input
       - ./data/output/:/data/output
 ```
