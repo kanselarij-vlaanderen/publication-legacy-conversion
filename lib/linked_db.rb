@@ -8,14 +8,14 @@ end
 
 module LinkedDB
   def self.initialize
-    @sparql_client = SinatraTemplate::Utils.sparql_client
+    @sparql_client = Mu.sparql_client
   end
   initialize
 
   BASE_BACKOFF_SECONDS = 1
   def self.query(query)
     log.debug(query)
-    
+
     max_tries = 5
     (1..max_tries).each do |try|
       begin
