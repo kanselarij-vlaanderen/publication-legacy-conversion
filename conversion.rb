@@ -51,7 +51,7 @@ PUBLICATIE_STATUS_GEPUBLICEERD = RDF::URI "http://themis.vlaanderen.be/id/concep
 $public_graph = RDF::Graph.new
 
 def run(publicaties = nil)
-  log.info "[STARTED] Starting publication legacy conversion"
+  Mu.log.info "[STARTED] Starting publication legacy conversion"
   publicaties = AccessDB.nodes if publicaties.nil?
 
   ConvertGovernmentDomains.validate publicaties.map { |n| AccessDB.record n }
@@ -65,28 +65,28 @@ def run(publicaties = nil)
   $errors_csv = CSV.open(
     "#{Configuration::Environment.output_dir}/#{file_timestamp}-errors.csv", mode="a+", encoding: "UTF-8")
 
-  log.info "-- Input file : #{AccessDB.input_file}"
-  log.info "-- Output file : #{ttl_output_file}"
+  Mu.log.info "-- Input file : #{AccessDB.input_file}"
+  Mu.log.info "-- Output file : #{ttl_output_file}"
 
   batch_number = 1
   batch_size = 1000
   publicaties.each_with_index do |publicatie, index|
     dossiernummer = publicatie.css('dossiernummer').text
-    log.info "Processing dossiernummer #{dossiernummer} (#{index + 1}/#{publicaties.size}) ... "
+    Mu.log.info "Processing dossiernummer #{dossiernummer} (#{index + 1}/#{publicaties.size}) ... "
     process_publicatie publicatie
-    log.info "Processing dossiernummer #{dossiernummer} DONE."
+    Mu.log.info "Processing dossiernummer #{dossiernummer} DONE."
 
     if (index > 0 and index % batch_size == 0) or index == publicaties.size - 1
-      log.info "[ONGOING] Writing generated data to file for records #{(batch_number - 1) * batch_size + 1} until #{[batch_number * batch_size, index + 1].min}..."
+      Mu.log.info "[ONGOING] Writing generated data to file for records #{(batch_number - 1) * batch_size + 1} until #{[batch_number * batch_size, index + 1].min}..."
       RDF::Writer.open("#{ttl_output_file}-#{batch_number}.ttl") { |writer| writer << $public_graph }
       File.open("#{ttl_output_file}-#{batch_number}.graph", "w+") { |f| f.puts(KANSELARIJ_GRAPH) }
-      log.info "done"
+      Mu.log.info "done"
       $public_graph = RDF::Graph.new
       batch_number += 1
     end
   end
 
-  log.info "Processed #{publicaties.size} records."
+  Mu.log.info "Processed #{publicaties.size} records."
 
 end
 
@@ -219,7 +219,7 @@ end
 def create_identification(dossiernummer)
   structured_identifier = create_structured_identifier(dossiernummer)
 
-  uuid = generate_uuid()
+  uuid = Mu.generate_uuid()
   identification_uri = RDF::URI(BASE_URI % { :resource => 'identificator', :id => uuid})
   $public_graph << RDF.Statement(identification_uri, RDF.type, ADMS.Identifier)
   $public_graph << RDF.Statement(identification_uri, MU_CORE.uuid, uuid)
@@ -236,7 +236,7 @@ def create_structured_identifier(dossiernummer)
   local_identificator = identificator[:number]
   version_identificator = identificator[:version]
 
-  uuid = generate_uuid()
+  uuid = Mu.generate_uuid()
   structured_identification_uri = RDF::URI(BASE_URI % { :resource => 'structured-identificator', :id => uuid})
   $public_graph << RDF.Statement(structured_identification_uri, RDF.type, GENERIEK.GestructureerdeIdentificator)
   $public_graph << RDF.Statement(structured_identification_uri, MU_CORE.uuid, uuid)
@@ -248,7 +248,7 @@ def create_structured_identifier(dossiernummer)
 end
 
 def create_case(data)
-  uuid = generate_uuid()
+  uuid = Mu.generate_uuid()
   case_uri = RDF::URI(BASE_URI % { :resource => 'dossier', :id => uuid})
   $public_graph << RDF.Statement(case_uri, RDF.type, DOSSIER.Dossier)
   $public_graph << RDF.Statement(case_uri, MU_CORE.uuid, uuid)
@@ -264,7 +264,7 @@ def set_case(data)
 end
 
 def create_treatment(data)
-  uuid = generate_uuid()
+  uuid = Mu.generate_uuid()
   treatment_uri = RDF::URI(BASE_URI % { :resource => 'behandeling-van-agendapunt', :id => uuid})
   $public_graph << RDF.Statement(treatment_uri, RDF.type, BESLUIT.BehandelingVanAgendapunt)
   $public_graph << RDF.Statement(treatment_uri, MU_CORE.uuid, uuid)
@@ -304,7 +304,7 @@ def create_translation_subcase(rec, data)
   subcase_start_date = rec.vertaling_aangevraagd || get_dossier_date(rec)
   subcase_end_date = rec.vertaling_ontvangen
 
-  uuid = generate_uuid()
+  uuid = Mu.generate_uuid()
   subcase_uri = RDF::URI(BASE_URI % { :resource => 'procedurestap', :id => uuid})
   $public_graph << RDF.Statement(subcase_uri, RDF.type, PUB.VertalingProcedurestap)
   $public_graph << RDF.Statement(subcase_uri, MU_CORE.uuid, uuid)
@@ -314,7 +314,7 @@ def create_translation_subcase(rec, data)
   $public_graph << RDF.Statement(subcase_uri, DCT.source, DATASOURCE)
 
   if subcase_start_date or subcase_end_date or due_date
-    request_activity_uuid = generate_uuid()
+    request_activity_uuid = Mu.generate_uuid()
     request_activity_uri = RDF::URI(CONCEPT_URI % { :resource => 'aanvraag-activiteit', :id => request_activity_uuid})
     $public_graph << RDF.Statement(request_activity_uri, RDF.type, PUB.AanvraagActiviteit)
     $public_graph << RDF.Statement(request_activity_uri, MU_CORE.uuid, request_activity_uuid)
@@ -323,7 +323,7 @@ def create_translation_subcase(rec, data)
     $public_graph << RDF.Statement(request_activity_uri, PUB.aanvraagVindtPlaatsTijdensVertaling, subcase_uri)
     $public_graph << RDF.Statement(request_activity_uri, DCT.source, DATASOURCE)
 
-    translation_activity_uuid = generate_uuid()
+    translation_activity_uuid = Mu.generate_uuid()
     translation_activity_uri = RDF::URI(CONCEPT_URI % { :resource => 'vertaal-activiteit', :id => translation_activity_uuid})
     $public_graph << RDF.Statement(translation_activity_uri, RDF.type, PUB.VertaalActiviteit)
     $public_graph << RDF.Statement(translation_activity_uri, MU_CORE.uuid, translation_activity_uuid)
@@ -348,7 +348,7 @@ def create_publication_subcase(rec, data)
   subcase_start_date = rec.drukproef_aangevraagd || get_dossier_date(rec)
   subcase_end_date = rec.publicatiedatum
 
-  publication_subcase_uuid = generate_uuid()
+  publication_subcase_uuid = Mu.generate_uuid()
   subcase_uri = RDF::URI(BASE_URI % { :resource => 'procedurestap', :id => publication_subcase_uuid})
   $public_graph << RDF.Statement(subcase_uri, RDF.type, PUB.PublicatieProcedurestap)
   $public_graph << RDF.Statement(subcase_uri, MU_CORE.uuid, publication_subcase_uuid)
@@ -359,7 +359,7 @@ def create_publication_subcase(rec, data)
   $public_graph << RDF.Statement(subcase_uri, DCT.source, DATASOURCE)
 
   if proofing_start_date or proofing_end_date
-    proofing_request_activity_uuid = generate_uuid()
+    proofing_request_activity_uuid = Mu.generate_uuid()
     proofing_request_activity_uri = RDF::URI(CONCEPT_URI % { :resource => 'aanvraag-activiteit', :id => proofing_request_activity_uuid})
     $public_graph << RDF.Statement(proofing_request_activity_uri, RDF.type, PUB.AanvraagActiviteit)
     $public_graph << RDF.Statement(proofing_request_activity_uri, MU_CORE.uuid, proofing_request_activity_uuid)
@@ -368,7 +368,7 @@ def create_publication_subcase(rec, data)
     $public_graph << RDF.Statement(proofing_request_activity_uri, PUB.aanvraagVindtPlaatsTijdensPublicatie, subcase_uri)
     $public_graph << RDF.Statement(proofing_request_activity_uri, DCT.source, DATASOURCE)
 
-    proofing_activity_uuid = generate_uuid()
+    proofing_activity_uuid = Mu.generate_uuid()
     proofing_activity_uri = RDF::URI(CONCEPT_URI % { :resource => 'drukproef-activiteit', :id => proofing_activity_uuid})
     $public_graph << RDF.Statement(proofing_activity_uri, RDF.type, PUB.DrukproefActiviteit)
     $public_graph << RDF.Statement(proofing_activity_uri, MU_CORE.uuid, proofing_activity_uuid)
@@ -380,7 +380,7 @@ def create_publication_subcase(rec, data)
   end
 
   if publication_start_date or publication_end_date
-    publication_request_activity_uuid = generate_uuid()
+    publication_request_activity_uuid = Mu.generate_uuid()
     publication_request_activity_uri = RDF::URI(CONCEPT_URI % { :resource => 'aanvraag-activiteit', :id => publication_request_activity_uuid})
     $public_graph << RDF.Statement(publication_request_activity_uri, RDF.type, PUB.AanvraagActiviteit)
     $public_graph << RDF.Statement(publication_request_activity_uri, MU_CORE.uuid, publication_request_activity_uuid)
@@ -389,7 +389,7 @@ def create_publication_subcase(rec, data)
     $public_graph << RDF.Statement(publication_request_activity_uri, PUB.aanvraagVindtPlaatsTijdensPublicatie, subcase_uri)
     $public_graph << RDF.Statement(publication_request_activity_uri, DCT.source, DATASOURCE)
 
-    publication_activity_uuid = generate_uuid()
+    publication_activity_uuid = Mu.generate_uuid()
     publication_activity_uri = RDF::URI(CONCEPT_URI % { :resource => 'publicatie-activiteit', :id => publication_activity_uuid})
     $public_graph << RDF.Statement(publication_activity_uri, RDF.type, PUB.PublicatieActiviteit)
     $public_graph << RDF.Statement(publication_activity_uri, MU_CORE.uuid, publication_activity_uuid)
@@ -410,7 +410,7 @@ def create_publication_subcase(rec, data)
 end
 
 def create_numac_number(werknummer_BS)
-  uuid = generate_uuid()
+  uuid = Mu.generate_uuid()
   numac_uri = RDF::URI(BASE_URI % { :resource => 'identificator', :id => uuid})
   $public_graph << RDF.Statement(numac_uri, RDF.type, ADMS.Identifier)
   $public_graph << RDF.Statement(numac_uri, MU_CORE.uuid, uuid)
@@ -422,7 +422,7 @@ def create_numac_number(werknummer_BS)
 end
 
 def create_decision data
-  uuid = generate_uuid
+  uuid = Mu.generate_uuid()
   uri = RDF::URI(BASE_URI % { resource: 'besluit', id: uuid })
   $public_graph << RDF.Statement(uri, RDF.type, ELI.LegalResource)
   $public_graph << RDF.Statement(uri, MU_CORE.uuid, uuid)
@@ -431,7 +431,7 @@ def create_decision data
 end
 
 def create_publicationflow()
-  uuid = generate_uuid()
+  uuid = Mu.generate_uuid()
   publication_uri = RDF::URI(BASE_URI % { :resource => 'publicatie-aangelegenheid', :id => uuid})
   $public_graph << RDF.Statement(publication_uri, RDF.type, PUB.Publicatieaangelegenheid)
   $public_graph << RDF.Statement(publication_uri, MU_CORE.uuid, uuid)
@@ -441,7 +441,7 @@ def create_publicationflow()
 end
 
 def create_publication_status_change data
-  uuid = generate_uuid()
+  uuid = Mu.generate_uuid()
   activity_uri = RDF::URI(BASE_URI % { :resource => 'publicatie-status-wijziging', :id => uuid})
   $public_graph << RDF.Statement(activity_uri, RDF.type, PUB.PublicatieStatusWijziging)
   $public_graph << RDF.Statement(activity_uri, MU_CORE.uuid, uuid)

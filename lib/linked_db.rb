@@ -14,7 +14,7 @@ module LinkedDB
 
   BASE_BACKOFF_SECONDS = 1
   def self.query(query)
-    log.debug(query)
+    Mu.log.debug(query)
 
     max_tries = 5
     (1..max_tries).each do |try|
@@ -25,7 +25,7 @@ module LinkedDB
           raise x
         end
         time_to_sleep = BASE_BACKOFF_SECONDS * (try ** 2)
-        log.info "HTTP error: retrying in #{time_to_sleep} seconds. Sleeping: zzz..."
+        Mu.log.info "HTTP error: retrying in #{time_to_sleep} seconds. Sleeping: zzz..."
 
         Kernel.sleep time_to_sleep
       end
