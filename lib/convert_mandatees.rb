@@ -43,7 +43,7 @@ module ConvertMandatees
         .map { |minister| @replacements.fetch minister, minister }
 
       mandatees = bevoegde_ministers.flat_map do |minister|
-        minister_escaped = sparql_escape_string(minister)
+        minister_escaped = minister.sparql_escape
 
         query = %{
           PREFIX mandaat: <http://data.vlaanderen.be/ns/mandaat#>
