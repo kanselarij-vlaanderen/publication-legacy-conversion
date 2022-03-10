@@ -318,7 +318,7 @@ def create_translation_subcase(rec, data)
     $public_graph << RDF.Statement(request_activity_uri, RDF.type, PUB.AanvraagActiviteit)
     $public_graph << RDF.Statement(request_activity_uri, MU_CORE.uuid, request_activity_uuid)
     $public_graph << RDF.Statement(request_activity_uri, DOSSIER['Activiteit.startdatum'], activity_start_date) if activity_start_date
-    $public_graph << RDF.Statement(request_activity_uri, DOSSIER['Activiteit.einddatum'], activity_end_date) if activity_end_date # request_activity.end_date == request_activity.start_date // Access DB does not contain end date
+    $public_graph << RDF.Statement(request_activity_uri, DOSSIER['Activiteit.einddatum'], activity_start_date) if activity_start_date # request_activity.end_date == request_activity.start_date // Access DB does not contain end date
     $public_graph << RDF.Statement(request_activity_uri, PUB.aanvraagVindtPlaatsTijdensVertaling, subcase_uri)
     $public_graph << RDF.Statement(request_activity_uri, DCT.source, DATASOURCE)
 
