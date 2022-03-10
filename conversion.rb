@@ -25,7 +25,7 @@ ELI = RDF::Vocabulary.new("http://data.europa.eu/eli/ontology#")
 EXT = RDF::Vocabulary.new("http://mu.semte.ch/vocabularies/ext/")
 DCT = RDF::Vocabulary.new("http://purl.org/dc/terms/")
 TMO = RDF::Vocabulary.new("http://www.semanticdesktop.org/ontologies/2008/05/20/tmo#")
-FABIO = RDF::Vocabulary.new("http://purl.org/spar/fabio/#")
+FABIO = RDF::Vocabulary.new("http://purl.org/spar/fabio/")
 RDFS = RDF::Vocabulary.new("https://www.w3.org/2000/01/rdf-schema#")
 
 PUBLICATIEWIJZE_UITTREKSEL = RDF::URI "http://themis.vlaanderen.be/id/concept/publicatie-wijze/bd49553f-39af-4b47-9550-1662e1bde7e6"
