@@ -72,7 +72,7 @@ module ConvertMandatees
         mandatees_results = LinkedDB::query(query)
 
         mandatees = process_mandatee_results rec, minister, mandatees_results.to_a
-        return mandatees
+        mandatees
       end
 
       return mandatees
