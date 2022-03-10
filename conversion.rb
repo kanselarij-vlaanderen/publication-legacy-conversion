@@ -98,7 +98,7 @@ def process_publicatie(publicatie)
     trefwoord = publicatie.css('trefwoord').text || ""
     bevoegde_ministers = publicatie.css('bevoegde_x0020_minister_x0028_s_x0029_').text || ""
     document_nr = publicatie.css('document_x0020_nr').text || ""
-    aantal_bladzijden = publicatie.css('aantal_x0020_blz').text || ""
+    aantal_bladzijden = (publicatie.css('aantal_x0020_blz').text || "").to_i
     opdrachtgever = publicatie.css('opdrachtgever').text || ""
     opdracht_formeel_ontvangen = publicatie.css('opdracht_x0020_formeel_x0020_ontvangen').text || ""
     wijze_van_publicatie = publicatie.css('wijze_x0020_van_x0020_publicatie').text || ""
@@ -143,7 +143,6 @@ def process_publicatie(publicatie)
     remark = []
     remark << "trefwoord: #{trefwoord}" unless trefwoord.empty?
     remark << "opdrachtgever: #{opdrachtgever}" unless opdrachtgever.empty?
-    remark << "aantal bladzijden: #{aantal_bladzijden}" unless aantal_bladzijden.empty?
     if rec.vertaling_ontvangen
       translation_end_date_str = rec.vertaling_ontvangen.strftime "%d/%m/%Y"
       remark << "vertaling ontvangen: #{ translation_end_date_str }"
@@ -466,12 +465,11 @@ def set_publicationflow(data)
   $public_graph << RDF.Statement(publication_uri, DOSSIER.openingsdatum, data[:opening_date].to_date)
   $public_graph << RDF.Statement(publication_uri, DOSSIER.sluitingsdatum, data[:closing_date].to_date) if data[:closing_date]
   $public_graph << RDF.Statement(publication_uri, EXT.legacyDocumentNumberMSAccess, data[:document_number]) unless data[:document_number].empty?
+  $public_graph << RDF.Statement(publication_uri, FABIO.hasPageCount, data[:pages]) if data[:pages] > 0
 
   data[:mandatees].each do |mandatee|
     $public_graph << RDF.Statement(publication_uri, EXT.heeftBevoegdeVoorPublicatie, mandatee)
   end
-
-  $public_graph << RDF.Statement(data[:reference_document], FABIO.hasPageCount, data[:pages]) unless (data[:reference_document].nil? or data[:pages].nil?)
 
   $public_graph << RDF.Statement(publication_uri, ADMS.status, data[:publication_status])
 
