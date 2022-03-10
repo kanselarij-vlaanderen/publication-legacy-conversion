@@ -312,7 +312,7 @@ def create_translation_subcase(rec, data)
   $public_graph << RDF.Statement(subcase_uri, TMO.dueDate, due_date) if due_date
   $public_graph << RDF.Statement(subcase_uri, DCT.source, DATASOURCE)
 
-  if subcase_start_date or subcase_end_date or due_date
+  if subcase_start_date or subcase_end_date
     request_activity_uuid = Mu.generate_uuid()
     request_activity_uri = RDF::URI(CONCEPT_URI % { :resource => 'aanvraag-activiteit', :id => request_activity_uuid})
     $public_graph << RDF.Statement(request_activity_uri, RDF.type, PUB.AanvraagActiviteit)
