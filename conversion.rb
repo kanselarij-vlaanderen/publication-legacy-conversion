@@ -380,8 +380,8 @@ def create_publication_subcase(rec, data)
   #   $public_graph << RDF.Statement(proofing_activity_uri, DCT.source, DATASOURCE)
   # end
 
-  # Generation of activities disabled since not enough information is available in Access for a sensible conversion
-  # if publication_start_date or publication_end_date
+  if publication_start_date or publication_end_date
+  # Generation of request activity disabled since not enough information is available in Access for a sensible conversion
   #   publication_request_activity_uuid = Mu.generate_uuid()
   #   publication_request_activity_uri = RDF::URI(CONCEPT_URI % { :resource => 'aanvraag-activiteit', :id => publication_request_activity_uuid})
   #   $public_graph << RDF.Statement(publication_request_activity_uri, RDF.type, PUB.AanvraagActiviteit)
@@ -391,22 +391,22 @@ def create_publication_subcase(rec, data)
   #   $public_graph << RDF.Statement(publication_request_activity_uri, PUB.aanvraagVindtPlaatsTijdensPublicatie, subcase_uri)
   #   $public_graph << RDF.Statement(publication_request_activity_uri, DCT.source, DATASOURCE)
 
-  #   publication_activity_uuid = Mu.generate_uuid()
-  #   publication_activity_uri = RDF::URI(CONCEPT_URI % { :resource => 'publicatie-activiteit', :id => publication_activity_uuid})
-  #   $public_graph << RDF.Statement(publication_activity_uri, RDF.type, PUB.PublicatieActiviteit)
-  #   $public_graph << RDF.Statement(publication_activity_uri, MU_CORE.uuid, publication_activity_uuid)
-  #   $public_graph << RDF.Statement(publication_activity_uri, DOSSIER['Activiteit.startdatum'], publication_start_date) if publication_start_date
-  #   $public_graph << RDF.Statement(publication_activity_uri, DOSSIER['Activiteit.einddatum'], publication_end_date) if publication_end_date
-  #   $public_graph << RDF.Statement(publication_activity_uri, PUB.publicatieactiviteitVanAanvraag, publication_request_activity_uri)
-  #   $public_graph << RDF.Statement(publication_activity_uri, PUB.publicatieVindtPlaatsTijdens, subcase_uri)
+    publication_activity_uuid = Mu.generate_uuid()
+    publication_activity_uri = RDF::URI(CONCEPT_URI % { :resource => 'publicatie-activiteit', :id => publication_activity_uuid})
+    $public_graph << RDF.Statement(publication_activity_uri, RDF.type, PUB.PublicatieActiviteit)
+    $public_graph << RDF.Statement(publication_activity_uri, MU_CORE.uuid, publication_activity_uuid)
+    $public_graph << RDF.Statement(publication_activity_uri, DOSSIER['Activiteit.startdatum'], publication_start_date) if publication_start_date
+    $public_graph << RDF.Statement(publication_activity_uri, DOSSIER['Activiteit.einddatum'], publication_end_date) if publication_end_date
+  #  $public_graph << RDF.Statement(publication_activity_uri, PUB.publicatieactiviteitVanAanvraag, publication_request_activity_uri)
+    $public_graph << RDF.Statement(publication_activity_uri, PUB.publicatieVindtPlaatsTijdens, subcase_uri)
 
-  #   if data[:publication_status] === PUBLICATIE_STATUS_GEPUBLICEERD
-  #     decision_uri = create_decision publication_date: publication_end_date
-  #     $public_graph << RDF.Statement(publication_activity_uri, PROV.generated, decision_uri)
-  #   end
+    if data[:publication_status] === PUBLICATIE_STATUS_GEPUBLICEERD
+      decision_uri = create_decision publication_date: publication_end_date
+      $public_graph << RDF.Statement(publication_activity_uri, PROV.generated, decision_uri)
+    end
 
-  #  $public_graph << RDF.Statement(publication_activity_uri, DCT.source, DATASOURCE)
-  # end
+   $public_graph << RDF.Statement(publication_activity_uri, DCT.source, DATASOURCE)
+  end
 
   $public_graph << RDF.Statement(data[:publication_uri], PUB.doorlooptPublicatie, subcase_uri)
 end
