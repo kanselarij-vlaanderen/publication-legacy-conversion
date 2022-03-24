@@ -34,7 +34,8 @@ module ConvertGovernmentDomains
 
     not_found = records.select { |r| r[2].nil? }
     if not_found.any?
-      raise StandardError.new "Incorrect government domain mapping"
+      not_found_keys = not_found.map { |r| r[0] }
+      raise StandardError.new "Incorrect government domain mapping: #{ not_found_keys.join "," }"
     end
   end
 
@@ -48,7 +49,7 @@ module ConvertGovernmentDomains
     end
     
     if not_found.any?
-      raise StandardError.new "Unknown govenment domains: #{ not_found.join "," }"
+      raise StandardError.new "Unknown govenment domains: #{ not_found.to_a.join "," }"
     end
   end
 
