@@ -92,17 +92,17 @@ module ConvertGovernmentDomains
         }
       }
     }
-    triples = LinkedDB.query query
-    if triples.length > 1
+    
+    records = LinkedDB.query query
+    if records.length > 1
       raise StandardError.new "Unexpected number of results for uri <#{uri}>"
     end
 
-    if triples.first
-      return { label: triples.first[:label].value }
+    if records.first
+      return { label: records.first[:label].value }
     else
       return nil
     end
-
   end
 
   def self.prepare rec
