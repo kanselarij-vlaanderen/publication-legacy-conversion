@@ -6,7 +6,9 @@ require_relative 'lib/linked_db.rb'
 require_relative 'lib/convert_mandatees.rb'
 require_relative 'lib/convert_reference_document.rb'
 require_relative 'lib/convert_regulation_type.rb'
-require_relative 'lib/convert_government_domains.rb'
+# TODO: government domains data model under consideration
+# require_relative 'lib/convert_government_domains.rb'
+require_relative 'lib/convert_government_domains_full_name.rb'
 
 BASE_URI = 'http://themis.vlaanderen.be/id/%{resource}/%{id}'
 CONCEPT_URI = 'http://themis.vlaanderen.be/id/concept/%{resource}/%{id}'
@@ -44,6 +46,7 @@ REGELGEVING_TYPE_ANDERE = RDF::URI "http://themis.vlaanderen.be/id/concept/regel
 KANSELARIJ_GRAPH = "http://mu.semte.ch/graphs/organizations/kanselarij"
 
 DATASOURCE = RDF::URI "http://vlaanderen.be/dossier-opvolging-access-db/DOSSIEROPVOLGING-H.xml"
+PROVISIONAL_BELEIDSDOMEIN_FULL_NAME = PUB['beleidsdomein-full-name#provisioir']
 
 PUBLICATIE_STATUS_TE_PUBLICEREN = RDF::URI "http://themis.vlaanderen.be/id/concept/publicatie-status/fa62e050-3960-440d-bed9-1c3d3e9923a8"
 PUBLICATIE_STATUS_GEPUBLICEERD = RDF::URI "http://themis.vlaanderen.be/id/concept/publicatie-status/2f8dc814-bd91-4bcf-a823-baf1cdc42475"
@@ -54,7 +57,7 @@ def run(publicaties = nil)
   Mu.log.info "[STARTED] Starting publication legacy conversion"
   publicaties = AccessDB.nodes if publicaties.nil?
 
-  ConvertGovernmentDomains.validate publicaties.map { |n| AccessDB.record n }
+  ConvertGovernmentDomainsFullName.validate publicaties.map { |n| AccessDB.record n }
 
   file_timestamp = DateTime.now.strftime("%Y%m%d%H%M%S")
   ttl_output_file_name = "import-legacy-publications"
@@ -158,7 +161,7 @@ def process_publicatie(publicatie)
     publication_mode = get_publication_mode(rec)
     regelgeving_type = ConvertRegulationType.convert(rec)
 
-    government_domain_uris = ConvertGovernmentDomains.convert rec
+    beleidsdomein_full_name_list = ConvertGovernmentDomainsFullName.convert(rec)
 
     publication_uri = create_publicationflow()
 
@@ -177,10 +180,6 @@ def process_publicatie(publicatie)
 
     numac_number_uri = create_numac_number(werknummer_BS) unless werknummer_BS.empty?
 
-    set_case(
-      case_uri: case_uri,
-      government_domain_uris: government_domain_uris
-    )
 
     $errors_csv << [dossiernummer, "publication-date", "missing"] if publicatiedatum.empty?
 
@@ -204,6 +203,7 @@ def process_publicatie(publicatie)
       treatment: treatment_uri,
       pages: aantal_bladzijden,
       document_number: document_nr,
+      beleidsdomein_full_name_list: beleidsdomein_full_name_list
     )
 end
 
@@ -254,12 +254,6 @@ def create_case(data)
   $public_graph << RDF.Statement(case_uri, DCT.alternative, data[:title])
   $public_graph << RDF.Statement(case_uri, DCT.source, DATASOURCE)
   case_uri
-end
-
-def set_case(data)
-  data[:government_domain_uris].each do |government_domain_uri|
-    $public_graph << RDF.Statement(data[:case_uri], EXT.beleidsgebied, government_domain_uri)
-  end
 end
 
 def create_treatment(data)
@@ -469,6 +463,10 @@ def set_publicationflow(data)
   $public_graph << RDF.Statement(publication_uri, DOSSIER.sluitingsdatum, data[:closing_date].to_date) if data[:closing_date]
   $public_graph << RDF.Statement(publication_uri, EXT.legacyDocumentNumberMSAccess, data[:document_number]) unless data[:document_number].empty?
   $public_graph << RDF.Statement(publication_uri, FABIO.hasPageCount, data[:pages]) if data[:pages] > 0
+  
+  data[:beleidsdomein_full_name_list].each do |name|
+    $public_graph << RDF.Statement(publication_uri, PROVISIONAL_BELEIDSDOMEIN_FULL_NAME, name)
+  end
 
   data[:mandatees].each do |mandatee|
     $public_graph << RDF.Statement(publication_uri, EXT.heeftBevoegdeVoorPublicatie, mandatee)

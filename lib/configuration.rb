@@ -25,6 +25,11 @@ module Configuration
       return CSV.open path, "rt", encoding: "UTF-8"
     end
 
+    def self.government_domains_full_name &block
+      path = File.join("/app/configuration/government-domains-full-name.csv")
+      return CSV.open path, "rt", encoding: "UTF-8", col_sep: ';', &block
+    end
+
     def self.mandatees_corrections
       path = File.join("/app/configuration/mandatees-corrections.csv")
       return CSV.open path, "rt", encoding: "UTF-8"

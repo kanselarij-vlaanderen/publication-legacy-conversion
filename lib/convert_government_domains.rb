@@ -1,3 +1,4 @@
+# TODO: government domains data model is under consideration
 module ConvertGovernmentDomains
   def self.initialize
     @mapping = setup_mapping
