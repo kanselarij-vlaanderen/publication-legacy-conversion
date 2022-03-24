@@ -26,17 +26,19 @@ module ConvertGovernmentDomains
     validate_entries publication_records
   end
 
+  # @param [Enumerator::Lazy] publication_records 
   def self.validate_mapping mapping
     records = query_mapping mapping
     
     export_mapping records
 
     not_found = records.select { |r| r[2].nil? }
-    if !not_found.empty?
+    if not_found.any?
       raise StandardError.new "Incorrect government domain mapping"
     end
   end
 
+  # @param [Enumerator::Lazy] publication_records 
   def self.validate_entries publication_records
     beleidsdomeinen = publication_records.flat_map { |r| prepare r }.uniq
     not_found = beleidsdomeinen.select do |domein|
@@ -44,7 +46,8 @@ module ConvertGovernmentDomains
       required = !(@ignore_set === domein)
       next not_found && required
     end
-    if !not_found.empty?
+    
+    if not_found.any?
       raise StandardError.new "Unknown govenment domains: #{ not_found.join "," }"
     end
   end

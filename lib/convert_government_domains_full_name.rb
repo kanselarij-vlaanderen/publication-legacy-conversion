@@ -16,6 +16,7 @@ module ConvertGovernmentDomainsFullName
     validate_entries publication_records
   end
 
+  # @param [Enumerator::Lazy] publication_records 
   def self.validate_entries publication_records
     beleidsdomein_accdb_list = publication_records.flat_map { |r| prepare r }.uniq
     not_found = beleidsdomein_accdb_list.select do |domein|
@@ -23,8 +24,9 @@ module ConvertGovernmentDomainsFullName
       required = !(@ignore_set === domein)
       next not_found && required
     end
-    if !not_found.empty?
-      raise StandardError.new "Unknown govenment domains: #{ not_found.join "," }"
+
+    if not_found.any?
+      raise StandardError.new "Unknown govenment domains: #{ not_found.to_a.join "," }"
     end
   end
 
