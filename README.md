@@ -34,11 +34,11 @@ contains the errors encountered during the conversion
 ## Reference
 ### API
 ```
-POST /ingest?range=start,end&take=number
+POST /ingest?range=start,end&take=number&dossiernummer=123252,321240
 ```
 Endpoint to start a conversion.
 
 One of the following query params can be specified to run the conversion only on a subset of publications from the Access DB
 - `range`: specifying number of start and end nod
 - `take`: taking each `take`th element into account
-
+- `dossiernummer`: specify dossiernummer(s)
