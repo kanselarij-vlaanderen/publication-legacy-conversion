@@ -6,9 +6,7 @@ require_relative 'lib/linked_db.rb'
 require_relative 'lib/convert_mandatees.rb'
 require_relative 'lib/convert_reference_document.rb'
 require_relative 'lib/convert_regulation_type.rb'
-# TODO: government domains data model under consideration
-# require_relative 'lib/convert_government_domains.rb'
-require_relative 'lib/convert_government_domains_full_name.rb'
+require_relative 'lib/convert_government_domains.rb'
 
 BASE_URI = 'http://themis.vlaanderen.be/id/%{resource}/%{id}'
 CONCEPT_URI = 'http://themis.vlaanderen.be/id/concept/%{resource}/%{id}'
@@ -57,7 +55,7 @@ def run(publicaties = nil)
   Mu.log.info "[STARTED] Starting publication legacy conversion"
   publicaties = AccessDB.nodes if publicaties.nil?
 
-  ConvertGovernmentDomainsFullName.validate publicaties.map { |n| AccessDB.record n }
+  ConvertGovernmentDomains.validate publicaties.map { |n| AccessDB.record n }
 
   file_timestamp = DateTime.now.strftime("%Y%m%d%H%M%S")
   ttl_output_file_name = "import-legacy-publications"
@@ -162,7 +160,7 @@ def process_publicatie(publicatie)
     publication_mode = get_publication_mode(rec)
     regelgeving_type = ConvertRegulationType.convert(rec)
 
-    beleidsdomein_full_name_list = ConvertGovernmentDomainsFullName.convert(rec)
+    beleidsdomein_uri_list = ConvertGovernmentDomains.convert(rec)
 
     publication_uri = create_publicationflow()
 
@@ -204,7 +202,7 @@ def process_publicatie(publicatie)
       treatment: treatment_uri,
       pages: aantal_bladzijden,
       document_number: document_nr,
-      beleidsdomein_full_name_list: beleidsdomein_full_name_list
+      beleidsdomein_uri_list: beleidsdomein_uri_list
     )
 end
 
@@ -465,8 +463,8 @@ def set_publicationflow(data)
   $public_graph << RDF.Statement(publication_uri, EXT.legacyDocumentNumberMSAccess, data[:document_number]) unless data[:document_number].empty?
   $public_graph << RDF.Statement(publication_uri, FABIO.hasPageCount, data[:pages]) if data[:pages] > 0
   
-  data[:beleidsdomein_full_name_list].each do |name|
-    $public_graph << RDF.Statement(publication_uri, PROVISIONAL_BELEIDSDOMEIN_FULL_NAME, name)
+  data[:beleidsdomein_uri_list].each do |beleidsdomein|
+    $public_graph << RDF.Statement(publication_uri, PROVISIONAL_BELEIDSDOMEIN_FULL_NAME, beleidsdomein)
   end
 
   data[:mandatees].each do |mandatee|
