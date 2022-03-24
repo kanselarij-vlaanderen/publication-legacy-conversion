@@ -41,6 +41,7 @@ REGELGEVING_TYPE_KB = RDF::URI "http://themis.vlaanderen.be/id/concept/regelgevi
 REGELGEVING_TYPE_ERRATUM = RDF::URI "http://themis.vlaanderen.be/id/concept/regelgeving-type/02d57dd4-bc84-4dd3-8a85-7e3ac4af2a7e";
 REGELGEVING_TYPE_ANDERE = RDF::URI "http://themis.vlaanderen.be/id/concept/regelgeving-type/0916ac88-1a96-4e6b-a87b-b7f6dd4d9652";
 
+PUBLIC_GRAPH = "http://mu.semte.ch/graphs/public"
 KANSELARIJ_GRAPH = "http://mu.semte.ch/graphs/organizations/kanselarij"
 
 DATASOURCE = RDF::URI "http://vlaanderen.be/dossier-opvolging-access-db/DOSSIEROPVOLGING-H.xml"
@@ -49,8 +50,6 @@ PROVISIONAL_BELEIDSDOMEIN_FULL_NAME = PUB['beleidsdomein-full-name#provisioir']
 PUBLICATIE_STATUS_TE_PUBLICEREN = RDF::URI "http://themis.vlaanderen.be/id/concept/publicatie-status/fa62e050-3960-440d-bed9-1c3d3e9923a8"
 PUBLICATIE_STATUS_GEPUBLICEERD = RDF::URI "http://themis.vlaanderen.be/id/concept/publicatie-status/2f8dc814-bd91-4bcf-a823-baf1cdc42475"
 
-$public_graph = RDF::Graph.new
-
 def run(publicaties = nil)
   Mu.log.info "[STARTED] Starting publication legacy conversion"
   publicaties = AccessDB.nodes if publicaties.nil?
@@ -58,16 +57,18 @@ def run(publicaties = nil)
   ConvertGovernmentDomains.validate publicaties.map { |n| AccessDB.record n }
 
   file_timestamp = DateTime.now.strftime("%Y%m%d%H%M%S")
-  ttl_output_file_name = "import-legacy-publications"
-  ttl_output_file = "#{Configuration::Environment.output_dir}/#{file_timestamp}-#{ttl_output_file_name}"
-  error_output_file_name = "errors.txt"
-  error_output_file = "#{Configuration::Environment.output_dir}/#{file_timestamp}-#{error_output_file_name}"
+  publications_ttl_output_file_name = "import-legacy-publications"
+  publications_ttl_output_file = "#{Configuration::Environment.output_dir}/#{file_timestamp}-#{publications_ttl_output_file_name}"
+  public_ttl_output_file = "#{Configuration::Environment.output_dir}/#{file_timestamp}-public"
 
   $errors_csv = CSV.open(
     "#{Configuration::Environment.output_dir}/#{file_timestamp}-errors.csv", mode="a+", encoding: "UTF-8")
 
   Mu.log.info "-- Input file : #{AccessDB.input_file}"
-  Mu.log.info "-- Output file : #{ttl_output_file}"
+  Mu.log.info "-- Output file : #{publications_ttl_output_file}"
+
+  $kanselarij_graph = RDF::Graph.new
+  $public_graph = RDF::Graph.new
 
   batch_number = 1
   batch_size = 1000
@@ -79,13 +80,16 @@ def run(publicaties = nil)
 
     if (index > 0 and index % batch_size == 0) or index == publicaties.size - 1
       Mu.log.info "[ONGOING] Writing generated data to file for records #{(batch_number - 1) * batch_size + 1} until #{[batch_number * batch_size, index + 1].min}..."
-      RDF::Writer.open("#{ttl_output_file}-#{batch_number}.ttl") { |writer| writer << $public_graph }
-      File.open("#{ttl_output_file}-#{batch_number}.graph", "w+") { |f| f.puts(KANSELARIJ_GRAPH) }
+      RDF::Writer.open("#{publications_ttl_output_file}-#{batch_number}.ttl") { |writer| writer << $kanselarij_graph }
+      File.open("#{publications_ttl_output_file}-#{batch_number}.graph", "w+") { |f| f.puts(KANSELARIJ_GRAPH) }
       Mu.log.info "done"
-      $public_graph = RDF::Graph.new
+      $kanselarij_graph = RDF::Graph.new
       batch_number += 1
     end
   end
+
+  RDF::Writer.open("#{public_ttl_output_file}.ttl") { |writer| writer << $public_graph }
+  File.open("#{public_ttl_output_file}.graph", "w+") { |f| f.puts(PUBLIC_GRAPH) }
 
   $errors_csv.close
   Mu.log.info "Processed #{publicaties.size} records."
@@ -219,12 +223,12 @@ def create_identification(dossiernummer)
 
   uuid = Mu.generate_uuid()
   identification_uri = RDF::URI(BASE_URI % { :resource => 'identificator', :id => uuid})
-  $public_graph << RDF.Statement(identification_uri, RDF.type, ADMS.Identifier)
-  $public_graph << RDF.Statement(identification_uri, MU_CORE.uuid, uuid)
-  $public_graph << RDF.Statement(identification_uri, SKOS.notation, dossiernummer)
-  $public_graph << RDF.Statement(identification_uri, ADMS.schemaAgency, 'ovrb')
-  $public_graph << RDF.Statement(identification_uri, GENERIEK.gestructureerdeIdentificator, structured_identifier)
-  $public_graph << RDF.Statement(identification_uri, DCT.source, DATASOURCE)
+  $kanselarij_graph << RDF.Statement(identification_uri, RDF.type, ADMS.Identifier)
+  $kanselarij_graph << RDF.Statement(identification_uri, MU_CORE.uuid, uuid)
+  $kanselarij_graph << RDF.Statement(identification_uri, SKOS.notation, dossiernummer)
+  $kanselarij_graph << RDF.Statement(identification_uri, ADMS.schemaAgency, 'ovrb')
+  $kanselarij_graph << RDF.Statement(identification_uri, GENERIEK.gestructureerdeIdentificator, structured_identifier)
+  $kanselarij_graph << RDF.Statement(identification_uri, DCT.source, DATASOURCE)
 
   identification_uri
 end
@@ -236,11 +240,11 @@ def create_structured_identifier(dossiernummer)
 
   uuid = Mu.generate_uuid()
   structured_identification_uri = RDF::URI(BASE_URI % { :resource => 'structured-identificator', :id => uuid})
-  $public_graph << RDF.Statement(structured_identification_uri, RDF.type, GENERIEK.GestructureerdeIdentificator)
-  $public_graph << RDF.Statement(structured_identification_uri, MU_CORE.uuid, uuid)
-  $public_graph << RDF.Statement(structured_identification_uri, GENERIEK.lokaleIdentificator, local_identificator)
-  $public_graph << RDF.Statement(structured_identification_uri, GENERIEK.versieIdentificator, version_identificator) if version_identificator
-  $public_graph << RDF.Statement(structured_identification_uri, DCT.source, DATASOURCE)
+  $kanselarij_graph << RDF.Statement(structured_identification_uri, RDF.type, GENERIEK.GestructureerdeIdentificator)
+  $kanselarij_graph << RDF.Statement(structured_identification_uri, MU_CORE.uuid, uuid)
+  $kanselarij_graph << RDF.Statement(structured_identification_uri, GENERIEK.lokaleIdentificator, local_identificator)
+  $kanselarij_graph << RDF.Statement(structured_identification_uri, GENERIEK.versieIdentificator, version_identificator) if version_identificator
+  $kanselarij_graph << RDF.Statement(structured_identification_uri, DCT.source, DATASOURCE)
 
   structured_identification_uri
 end
@@ -248,20 +252,20 @@ end
 def create_case(data)
   uuid = Mu.generate_uuid()
   case_uri = RDF::URI(BASE_URI % { :resource => 'dossier', :id => uuid})
-  $public_graph << RDF.Statement(case_uri, RDF.type, DOSSIER.Dossier)
-  $public_graph << RDF.Statement(case_uri, MU_CORE.uuid, uuid)
-  $public_graph << RDF.Statement(case_uri, DCT.alternative, data[:title])
-  $public_graph << RDF.Statement(case_uri, DCT.source, DATASOURCE)
+  $kanselarij_graph << RDF.Statement(case_uri, RDF.type, DOSSIER.Dossier)
+  $kanselarij_graph << RDF.Statement(case_uri, MU_CORE.uuid, uuid)
+  $kanselarij_graph << RDF.Statement(case_uri, DCT.alternative, data[:title])
+  $kanselarij_graph << RDF.Statement(case_uri, DCT.source, DATASOURCE)
   case_uri
 end
 
 def create_treatment(data)
   uuid = Mu.generate_uuid()
   treatment_uri = RDF::URI(BASE_URI % { :resource => 'behandeling-van-agendapunt', :id => uuid})
-  $public_graph << RDF.Statement(treatment_uri, RDF.type, BESLUIT.BehandelingVanAgendapunt)
-  $public_graph << RDF.Statement(treatment_uri, MU_CORE.uuid, uuid)
-  $public_graph << RDF.Statement(treatment_uri, DOSSIER['Activiteit.startdatum'], data[:start_date].to_date)
-  $public_graph << RDF.Statement(treatment_uri, DCT.source, DATASOURCE)
+  $kanselarij_graph << RDF.Statement(treatment_uri, RDF.type, BESLUIT.BehandelingVanAgendapunt)
+  $kanselarij_graph << RDF.Statement(treatment_uri, MU_CORE.uuid, uuid)
+  $kanselarij_graph << RDF.Statement(treatment_uri, DOSSIER['Activiteit.startdatum'], data[:start_date].to_date)
+  $kanselarij_graph << RDF.Statement(treatment_uri, DCT.source, DATASOURCE)
   treatment_uri
 end
 
@@ -298,36 +302,36 @@ def create_translation_subcase(rec, data)
 
   uuid = Mu.generate_uuid()
   subcase_uri = RDF::URI(BASE_URI % { :resource => 'procedurestap', :id => uuid})
-  $public_graph << RDF.Statement(subcase_uri, RDF.type, PUB.VertalingProcedurestap)
-  $public_graph << RDF.Statement(subcase_uri, MU_CORE.uuid, uuid)
-  $public_graph << RDF.Statement(subcase_uri, DOSSIER['Procedurestap.startdatum'], subcase_start_date)
-  $public_graph << RDF.Statement(subcase_uri, DOSSIER['Procedurestap.einddatum'], subcase_end_date) if subcase_end_date
-  $public_graph << RDF.Statement(subcase_uri, TMO.dueDate, due_date) if due_date
-  $public_graph << RDF.Statement(subcase_uri, DCT.source, DATASOURCE)
+  $kanselarij_graph << RDF.Statement(subcase_uri, RDF.type, PUB.VertalingProcedurestap)
+  $kanselarij_graph << RDF.Statement(subcase_uri, MU_CORE.uuid, uuid)
+  $kanselarij_graph << RDF.Statement(subcase_uri, DOSSIER['Procedurestap.startdatum'], subcase_start_date)
+  $kanselarij_graph << RDF.Statement(subcase_uri, DOSSIER['Procedurestap.einddatum'], subcase_end_date) if subcase_end_date
+  $kanselarij_graph << RDF.Statement(subcase_uri, TMO.dueDate, due_date) if due_date
+  $kanselarij_graph << RDF.Statement(subcase_uri, DCT.source, DATASOURCE)
 
   # Generation of activities disabled since not enough information is available in Access for a sensible conversion
   # if subcase_start_date or subcase_end_date
   #   request_activity_uuid = Mu.generate_uuid()
   #   request_activity_uri = RDF::URI(CONCEPT_URI % { :resource => 'aanvraag-activiteit', :id => request_activity_uuid})
-  #   $public_graph << RDF.Statement(request_activity_uri, RDF.type, PUB.AanvraagActiviteit)
-  #   $public_graph << RDF.Statement(request_activity_uri, MU_CORE.uuid, request_activity_uuid)
-  #   $public_graph << RDF.Statement(request_activity_uri, DOSSIER['Activiteit.startdatum'], activity_start_date) if activity_start_date
-  #   $public_graph << RDF.Statement(request_activity_uri, DOSSIER['Activiteit.einddatum'], activity_start_date) if activity_start_date # request_activity.end_date == request_activity.start_date // Access DB does not contain end date
-  #   $public_graph << RDF.Statement(request_activity_uri, PUB.aanvraagVindtPlaatsTijdensVertaling, subcase_uri)
-  #   $public_graph << RDF.Statement(request_activity_uri, DCT.source, DATASOURCE)
+  #   $kanselarij_graph << RDF.Statement(request_activity_uri, RDF.type, PUB.AanvraagActiviteit)
+  #   $kanselarij_graph << RDF.Statement(request_activity_uri, MU_CORE.uuid, request_activity_uuid)
+  #   $kanselarij_graph << RDF.Statement(request_activity_uri, DOSSIER['Activiteit.startdatum'], activity_start_date) if activity_start_date
+  #   $kanselarij_graph << RDF.Statement(request_activity_uri, DOSSIER['Activiteit.einddatum'], activity_start_date) if activity_start_date # request_activity.end_date == request_activity.start_date // Access DB does not contain end date
+  #   $kanselarij_graph << RDF.Statement(request_activity_uri, PUB.aanvraagVindtPlaatsTijdensVertaling, subcase_uri)
+  #   $kanselarij_graph << RDF.Statement(request_activity_uri, DCT.source, DATASOURCE)
 
   #   translation_activity_uuid = Mu.generate_uuid()
   #   translation_activity_uri = RDF::URI(CONCEPT_URI % { :resource => 'vertaal-activiteit', :id => translation_activity_uuid})
-  #   $public_graph << RDF.Statement(translation_activity_uri, RDF.type, PUB.VertaalActiviteit)
-  #   $public_graph << RDF.Statement(translation_activity_uri, MU_CORE.uuid, translation_activity_uuid)
-  #   $public_graph << RDF.Statement(translation_activity_uri, DOSSIER['Activiteit.startdatum'], activity_start_date) if activity_start_date
-  #   $public_graph << RDF.Statement(translation_activity_uri, DOSSIER['Activiteit.einddatum'], activity_end_date) if activity_end_date
-  #   $public_graph << RDF.Statement(translation_activity_uri, PUB.vertalingsactiviteitVanAanvraag, request_activity_uri)
-  #   $public_graph << RDF.Statement(translation_activity_uri, PUB.vertalingVindtPlaatsTijdens, subcase_uri)
-  #   $public_graph << RDF.Statement(translation_activity_uri, DCT.source, DATASOURCE)
+  #   $kanselarij_graph << RDF.Statement(translation_activity_uri, RDF.type, PUB.VertaalActiviteit)
+  #   $kanselarij_graph << RDF.Statement(translation_activity_uri, MU_CORE.uuid, translation_activity_uuid)
+  #   $kanselarij_graph << RDF.Statement(translation_activity_uri, DOSSIER['Activiteit.startdatum'], activity_start_date) if activity_start_date
+  #   $kanselarij_graph << RDF.Statement(translation_activity_uri, DOSSIER['Activiteit.einddatum'], activity_end_date) if activity_end_date
+  #   $kanselarij_graph << RDF.Statement(translation_activity_uri, PUB.vertalingsactiviteitVanAanvraag, request_activity_uri)
+  #   $kanselarij_graph << RDF.Statement(translation_activity_uri, PUB.vertalingVindtPlaatsTijdens, subcase_uri)
+  #   $kanselarij_graph << RDF.Statement(translation_activity_uri, DCT.source, DATASOURCE)
   # end
 
-  $public_graph << RDF.Statement(data[:publication_uri], PUB.doorlooptVertaling, subcase_uri)
+  $kanselarij_graph << RDF.Statement(data[:publication_uri], PUB.doorlooptVertaling, subcase_uri)
 end
 
 def create_publication_subcase(rec, data)
@@ -343,75 +347,75 @@ def create_publication_subcase(rec, data)
 
   publication_subcase_uuid = Mu.generate_uuid()
   subcase_uri = RDF::URI(BASE_URI % { :resource => 'procedurestap', :id => publication_subcase_uuid})
-  $public_graph << RDF.Statement(subcase_uri, RDF.type, PUB.PublicatieProcedurestap)
-  $public_graph << RDF.Statement(subcase_uri, MU_CORE.uuid, publication_subcase_uuid)
-  $public_graph << RDF.Statement(subcase_uri, DOSSIER['Procedurestap.startdatum'], subcase_start_date)
-  $public_graph << RDF.Statement(subcase_uri, DOSSIER['Procedurestap.einddatum'], subcase_end_date) if subcase_end_date
-  $public_graph << RDF.Statement(subcase_uri, TMO.dueDate, due_date) if due_date
-  $public_graph << RDF.Statement(subcase_uri, TMO.targetEndTime, target_end_date) if target_end_date
-  $public_graph << RDF.Statement(subcase_uri, DCT.source, DATASOURCE)
+  $kanselarij_graph << RDF.Statement(subcase_uri, RDF.type, PUB.PublicatieProcedurestap)
+  $kanselarij_graph << RDF.Statement(subcase_uri, MU_CORE.uuid, publication_subcase_uuid)
+  $kanselarij_graph << RDF.Statement(subcase_uri, DOSSIER['Procedurestap.startdatum'], subcase_start_date)
+  $kanselarij_graph << RDF.Statement(subcase_uri, DOSSIER['Procedurestap.einddatum'], subcase_end_date) if subcase_end_date
+  $kanselarij_graph << RDF.Statement(subcase_uri, TMO.dueDate, due_date) if due_date
+  $kanselarij_graph << RDF.Statement(subcase_uri, TMO.targetEndTime, target_end_date) if target_end_date
+  $kanselarij_graph << RDF.Statement(subcase_uri, DCT.source, DATASOURCE)
 
   # Generation of activities disabled since not enough information is available in Access for a sensible conversion
   # if proofing_start_date or proofing_end_date
   #   proofing_request_activity_uuid = Mu.generate_uuid()
   #   proofing_request_activity_uri = RDF::URI(CONCEPT_URI % { :resource => 'aanvraag-activiteit', :id => proofing_request_activity_uuid})
-  #   $public_graph << RDF.Statement(proofing_request_activity_uri, RDF.type, PUB.AanvraagActiviteit)
-  #   $public_graph << RDF.Statement(proofing_request_activity_uri, MU_CORE.uuid, proofing_request_activity_uuid)
-  #   $public_graph << RDF.Statement(proofing_request_activity_uri, DOSSIER['Activiteit.startdatum'], proofing_start_date) if proofing_start_date
-  #   $public_graph << RDF.Statement(proofing_request_activity_uri, DOSSIER['Activiteit.einddatum'], proofing_start_date) if proofing_start_date # request_activity.end_date == request_activity.start_date / Access DB does not contain end date
-  #   $public_graph << RDF.Statement(proofing_request_activity_uri, PUB.aanvraagVindtPlaatsTijdensPublicatie, subcase_uri)
-  #   $public_graph << RDF.Statement(proofing_request_activity_uri, DCT.source, DATASOURCE)
+  #   $kanselarij_graph << RDF.Statement(proofing_request_activity_uri, RDF.type, PUB.AanvraagActiviteit)
+  #   $kanselarij_graph << RDF.Statement(proofing_request_activity_uri, MU_CORE.uuid, proofing_request_activity_uuid)
+  #   $kanselarij_graph << RDF.Statement(proofing_request_activity_uri, DOSSIER['Activiteit.startdatum'], proofing_start_date) if proofing_start_date
+  #   $kanselarij_graph << RDF.Statement(proofing_request_activity_uri, DOSSIER['Activiteit.einddatum'], proofing_start_date) if proofing_start_date # request_activity.end_date == request_activity.start_date / Access DB does not contain end date
+  #   $kanselarij_graph << RDF.Statement(proofing_request_activity_uri, PUB.aanvraagVindtPlaatsTijdensPublicatie, subcase_uri)
+  #   $kanselarij_graph << RDF.Statement(proofing_request_activity_uri, DCT.source, DATASOURCE)
 
   #   proofing_activity_uuid = Mu.generate_uuid()
   #   proofing_activity_uri = RDF::URI(CONCEPT_URI % { :resource => 'drukproef-activiteit', :id => proofing_activity_uuid})
-  #   $public_graph << RDF.Statement(proofing_activity_uri, RDF.type, PUB.DrukproefActiviteit)
-  #   $public_graph << RDF.Statement(proofing_activity_uri, MU_CORE.uuid, proofing_activity_uuid)
-  #   $public_graph << RDF.Statement(proofing_activity_uri, DOSSIER['Activiteit.startdatum'], proofing_start_date) if proofing_start_date
-  #   $public_graph << RDF.Statement(proofing_activity_uri, DOSSIER['Activiteit.einddatum'], proofing_end_date) if proofing_end_date
-  #   $public_graph << RDF.Statement(proofing_activity_uri, PUB.drukproefactiviteitVanAanvraag, proofing_request_activity_uri)
-  #   $public_graph << RDF.Statement(proofing_activity_uri, PUB.drukproefVindtPlaatsTijdens, subcase_uri)
-  #   $public_graph << RDF.Statement(proofing_activity_uri, DCT.source, DATASOURCE)
+  #   $kanselarij_graph << RDF.Statement(proofing_activity_uri, RDF.type, PUB.DrukproefActiviteit)
+  #   $kanselarij_graph << RDF.Statement(proofing_activity_uri, MU_CORE.uuid, proofing_activity_uuid)
+  #   $kanselarij_graph << RDF.Statement(proofing_activity_uri, DOSSIER['Activiteit.startdatum'], proofing_start_date) if proofing_start_date
+  #   $kanselarij_graph << RDF.Statement(proofing_activity_uri, DOSSIER['Activiteit.einddatum'], proofing_end_date) if proofing_end_date
+  #   $kanselarij_graph << RDF.Statement(proofing_activity_uri, PUB.drukproefactiviteitVanAanvraag, proofing_request_activity_uri)
+  #   $kanselarij_graph << RDF.Statement(proofing_activity_uri, PUB.drukproefVindtPlaatsTijdens, subcase_uri)
+  #   $kanselarij_graph << RDF.Statement(proofing_activity_uri, DCT.source, DATASOURCE)
   # end
 
   if publication_start_date or publication_end_date
   # Generation of request activity disabled since not enough information is available in Access for a sensible conversion
   #   publication_request_activity_uuid = Mu.generate_uuid()
   #   publication_request_activity_uri = RDF::URI(CONCEPT_URI % { :resource => 'aanvraag-activiteit', :id => publication_request_activity_uuid})
-  #   $public_graph << RDF.Statement(publication_request_activity_uri, RDF.type, PUB.AanvraagActiviteit)
-  #   $public_graph << RDF.Statement(publication_request_activity_uri, MU_CORE.uuid, publication_request_activity_uuid)
-  #   $public_graph << RDF.Statement(publication_request_activity_uri, DOSSIER['Activiteit.startdatum'], publication_start_date) if publication_start_date
-  #   $public_graph << RDF.Statement(publication_request_activity_uri, DOSSIER['Activiteit.einddatum'], publication_start_date) if publication_start_date
-  #   $public_graph << RDF.Statement(publication_request_activity_uri, PUB.aanvraagVindtPlaatsTijdensPublicatie, subcase_uri)
-  #   $public_graph << RDF.Statement(publication_request_activity_uri, DCT.source, DATASOURCE)
+  #   $kanselarij_graph << RDF.Statement(publication_request_activity_uri, RDF.type, PUB.AanvraagActiviteit)
+  #   $kanselarij_graph << RDF.Statement(publication_request_activity_uri, MU_CORE.uuid, publication_request_activity_uuid)
+  #   $kanselarij_graph << RDF.Statement(publication_request_activity_uri, DOSSIER['Activiteit.startdatum'], publication_start_date) if publication_start_date
+  #   $kanselarij_graph << RDF.Statement(publication_request_activity_uri, DOSSIER['Activiteit.einddatum'], publication_start_date) if publication_start_date
+  #   $kanselarij_graph << RDF.Statement(publication_request_activity_uri, PUB.aanvraagVindtPlaatsTijdensPublicatie, subcase_uri)
+  #   $kanselarij_graph << RDF.Statement(publication_request_activity_uri, DCT.source, DATASOURCE)
 
     publication_activity_uuid = Mu.generate_uuid()
     publication_activity_uri = RDF::URI(CONCEPT_URI % { :resource => 'publicatie-activiteit', :id => publication_activity_uuid})
-    $public_graph << RDF.Statement(publication_activity_uri, RDF.type, PUB.PublicatieActiviteit)
-    $public_graph << RDF.Statement(publication_activity_uri, MU_CORE.uuid, publication_activity_uuid)
-    $public_graph << RDF.Statement(publication_activity_uri, DOSSIER['Activiteit.startdatum'], publication_start_date) if publication_start_date
-    $public_graph << RDF.Statement(publication_activity_uri, DOSSIER['Activiteit.einddatum'], publication_end_date) if publication_end_date
-  #  $public_graph << RDF.Statement(publication_activity_uri, PUB.publicatieactiviteitVanAanvraag, publication_request_activity_uri)
-    $public_graph << RDF.Statement(publication_activity_uri, PUB.publicatieVindtPlaatsTijdens, subcase_uri)
+    $kanselarij_graph << RDF.Statement(publication_activity_uri, RDF.type, PUB.PublicatieActiviteit)
+    $kanselarij_graph << RDF.Statement(publication_activity_uri, MU_CORE.uuid, publication_activity_uuid)
+    $kanselarij_graph << RDF.Statement(publication_activity_uri, DOSSIER['Activiteit.startdatum'], publication_start_date) if publication_start_date
+    $kanselarij_graph << RDF.Statement(publication_activity_uri, DOSSIER['Activiteit.einddatum'], publication_end_date) if publication_end_date
+  #  $kanselarij_graph << RDF.Statement(publication_activity_uri, PUB.publicatieactiviteitVanAanvraag, publication_request_activity_uri)
+    $kanselarij_graph << RDF.Statement(publication_activity_uri, PUB.publicatieVindtPlaatsTijdens, subcase_uri)
 
     if data[:publication_status] === PUBLICATIE_STATUS_GEPUBLICEERD
       decision_uri = create_decision publication_date: publication_end_date
-      $public_graph << RDF.Statement(publication_activity_uri, PROV.generated, decision_uri)
+      $kanselarij_graph << RDF.Statement(publication_activity_uri, PROV.generated, decision_uri)
     end
 
-   $public_graph << RDF.Statement(publication_activity_uri, DCT.source, DATASOURCE)
+   $kanselarij_graph << RDF.Statement(publication_activity_uri, DCT.source, DATASOURCE)
   end
 
-  $public_graph << RDF.Statement(data[:publication_uri], PUB.doorlooptPublicatie, subcase_uri)
+  $kanselarij_graph << RDF.Statement(data[:publication_uri], PUB.doorlooptPublicatie, subcase_uri)
 end
 
 def create_numac_number(werknummer_BS)
   uuid = Mu.generate_uuid()
   numac_uri = RDF::URI(BASE_URI % { :resource => 'identificator', :id => uuid})
-  $public_graph << RDF.Statement(numac_uri, RDF.type, ADMS.Identifier)
-  $public_graph << RDF.Statement(numac_uri, MU_CORE.uuid, uuid)
-  $public_graph << RDF.Statement(numac_uri, SKOS.notation, werknummer_BS)
-  $public_graph << RDF.Statement(numac_uri, ADMS.schemaAgency, 'Belgisch Staatsblad')
-  $public_graph << RDF.Statement(numac_uri, DCT.source, DATASOURCE)
+  $kanselarij_graph << RDF.Statement(numac_uri, RDF.type, ADMS.Identifier)
+  $kanselarij_graph << RDF.Statement(numac_uri, MU_CORE.uuid, uuid)
+  $kanselarij_graph << RDF.Statement(numac_uri, SKOS.notation, werknummer_BS)
+  $kanselarij_graph << RDF.Statement(numac_uri, ADMS.schemaAgency, 'Belgisch Staatsblad')
+  $kanselarij_graph << RDF.Statement(numac_uri, DCT.source, DATASOURCE)
 
   numac_uri
 end
@@ -419,18 +423,18 @@ end
 def create_decision data
   uuid = Mu.generate_uuid()
   uri = RDF::URI(BASE_URI % { resource: 'besluit', id: uuid })
-  $public_graph << RDF.Statement(uri, RDF.type, ELI.LegalResource)
-  $public_graph << RDF.Statement(uri, MU_CORE.uuid, uuid)
-  $public_graph << RDF.Statement(uri, ELI['date_publication'], data[:publication_date].to_date) # VOC['predicate'] syntax: RDF library replaces underscore by camelcasing
+  $kanselarij_graph << RDF.Statement(uri, RDF.type, ELI.LegalResource)
+  $kanselarij_graph << RDF.Statement(uri, MU_CORE.uuid, uuid)
+  $kanselarij_graph << RDF.Statement(uri, ELI['date_publication'], data[:publication_date].to_date) # VOC['predicate'] syntax: RDF library replaces underscore by camelcasing
   return uri
 end
 
 def create_publicationflow()
   uuid = Mu.generate_uuid()
   publication_uri = RDF::URI(BASE_URI % { :resource => 'publicatie-aangelegenheid', :id => uuid})
-  $public_graph << RDF.Statement(publication_uri, RDF.type, PUB.Publicatieaangelegenheid)
-  $public_graph << RDF.Statement(publication_uri, MU_CORE.uuid, uuid)
-  $public_graph << RDF.Statement(publication_uri, DCT.source, DATASOURCE)
+  $kanselarij_graph << RDF.Statement(publication_uri, RDF.type, PUB.Publicatieaangelegenheid)
+  $kanselarij_graph << RDF.Statement(publication_uri, MU_CORE.uuid, uuid)
+  $kanselarij_graph << RDF.Statement(publication_uri, DCT.source, DATASOURCE)
 
   publication_uri
 end
@@ -438,9 +442,9 @@ end
 def create_publication_status_change data
   uuid = Mu.generate_uuid()
   activity_uri = RDF::URI(BASE_URI % { :resource => 'publicatie-status-wijziging', :id => uuid})
-  $public_graph << RDF.Statement(activity_uri, RDF.type, PUB.PublicatieStatusWijziging)
-  $public_graph << RDF.Statement(activity_uri, MU_CORE.uuid, uuid)
-  $public_graph << RDF.Statement(activity_uri, PROV.startedAtTime, data[:date])
+  $kanselarij_graph << RDF.Statement(activity_uri, RDF.type, PUB.PublicatieStatusWijziging)
+  $kanselarij_graph << RDF.Statement(activity_uri, MU_CORE.uuid, uuid)
+  $kanselarij_graph << RDF.Statement(activity_uri, PROV.startedAtTime, data[:date])
 
   activity_uri
 end
@@ -448,36 +452,36 @@ end
 def set_publicationflow(data)
   publication_uri = data[:publication_uri]
 
-  $public_graph << RDF.Statement(publication_uri, DCT.created, data[:creation_date])
-  $public_graph << RDF.Statement(publication_uri, ADMS.identifier, data[:identification])
-  $public_graph << RDF.Statement(publication_uri, DOSSIER.behandelt, data[:caze])
-  $public_graph << RDF.Statement(publication_uri, DCT.subject, data[:treatment])
-  $public_graph << RDF.Statement(publication_uri, DCT.alternative, data[:short_title]) if data[:short_title]
-  $public_graph << RDF.Statement(publication_uri, PUB.regelgevingType, data[:regulation_type]) if data[:regulation_type]
-  $public_graph << RDF.Statement(publication_uri, PUB.publicatieWijze, data[:publication_mode]) if data[:publication_mode]
-  $public_graph << RDF.Statement(publication_uri, PUB.referentieDocument, data[:reference_document]) unless data[:reference_document].nil?
-  $public_graph << RDF.Statement(publication_uri, PUB.identifier, data[:numac_number]) if data[:numac_number]
-  $public_graph << RDF.Statement(publication_uri, RDFS.comment, data[:remark]) if data[:remark]
-  $public_graph << RDF.Statement(publication_uri, DOSSIER.openingsdatum, data[:opening_date].to_date)
-  $public_graph << RDF.Statement(publication_uri, DOSSIER.sluitingsdatum, data[:closing_date].to_date) if data[:closing_date]
-  $public_graph << RDF.Statement(publication_uri, EXT.legacyDocumentNumberMSAccess, data[:document_number]) unless data[:document_number].empty?
-  $public_graph << RDF.Statement(publication_uri, FABIO.hasPageCount, data[:pages]) if data[:pages] > 0
+  $kanselarij_graph << RDF.Statement(publication_uri, DCT.created, data[:creation_date])
+  $kanselarij_graph << RDF.Statement(publication_uri, ADMS.identifier, data[:identification])
+  $kanselarij_graph << RDF.Statement(publication_uri, DOSSIER.behandelt, data[:caze])
+  $kanselarij_graph << RDF.Statement(publication_uri, DCT.subject, data[:treatment])
+  $kanselarij_graph << RDF.Statement(publication_uri, DCT.alternative, data[:short_title]) if data[:short_title]
+  $kanselarij_graph << RDF.Statement(publication_uri, PUB.regelgevingType, data[:regulation_type]) if data[:regulation_type]
+  $kanselarij_graph << RDF.Statement(publication_uri, PUB.publicatieWijze, data[:publication_mode]) if data[:publication_mode]
+  $kanselarij_graph << RDF.Statement(publication_uri, PUB.referentieDocument, data[:reference_document]) unless data[:reference_document].nil?
+  $kanselarij_graph << RDF.Statement(publication_uri, PUB.identifier, data[:numac_number]) if data[:numac_number]
+  $kanselarij_graph << RDF.Statement(publication_uri, RDFS.comment, data[:remark]) if data[:remark]
+  $kanselarij_graph << RDF.Statement(publication_uri, DOSSIER.openingsdatum, data[:opening_date].to_date)
+  $kanselarij_graph << RDF.Statement(publication_uri, DOSSIER.sluitingsdatum, data[:closing_date].to_date) if data[:closing_date]
+  $kanselarij_graph << RDF.Statement(publication_uri, EXT.legacyDocumentNumberMSAccess, data[:document_number]) unless data[:document_number].empty?
+  $kanselarij_graph << RDF.Statement(publication_uri, FABIO.hasPageCount, data[:pages]) if data[:pages] > 0
   
   data[:beleidsdomein_uri_list].each do |beleidsdomein|
-    $public_graph << RDF.Statement(publication_uri, PROVISIONAL_BELEIDSDOMEIN_FULL_NAME, beleidsdomein)
+    $kanselarij_graph << RDF.Statement(publication_uri, PROVISIONAL_BELEIDSDOMEIN_FULL_NAME, beleidsdomein)
   end
 
   data[:mandatees].each do |mandatee|
-    $public_graph << RDF.Statement(publication_uri, EXT.heeftBevoegdeVoorPublicatie, mandatee)
+    $kanselarij_graph << RDF.Statement(publication_uri, EXT.heeftBevoegdeVoorPublicatie, mandatee)
   end
 
-  $public_graph << RDF.Statement(publication_uri, ADMS.status, data[:publication_status])
+  $kanselarij_graph << RDF.Statement(publication_uri, ADMS.status, data[:publication_status])
 
   if data[:publication_status] === PUBLICATIE_STATUS_GEPUBLICEERD
     status_change_uri = create_publication_status_change date: data[:closing_date] if data[:closing_date]
-    $public_graph << RDF.Statement(data[:publication_uri], PROV.hadActivity, status_change_uri)
+    $kanselarij_graph << RDF.Statement(data[:publication_uri], PROV.hadActivity, status_change_uri)
   else
     status_change_uri = create_publication_status_change date: data[:opening_date]
-    $public_graph << RDF.Statement(data[:publication_uri], PROV.hadActivity, status_change_uri)
+    $kanselarij_graph << RDF.Statement(data[:publication_uri], PROV.hadActivity, status_change_uri)
   end
 end
