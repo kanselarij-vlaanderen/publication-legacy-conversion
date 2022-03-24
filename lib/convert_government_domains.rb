@@ -54,12 +54,14 @@ module ConvertGovernmentDomains
   end
 
   def self.export_mapping records
-    csv = Configuration::Output.government_domains
-    records.each do |r|
-      if r[2]
-        label = r[2][:label]
+    Configuration::Output.government_domains do |csv|
+      
+      records.each do |r|
+        if r[2]
+          label = r[2][:label]
+        end
+        csv << [r[0], r[1], label]
       end
-      csv << [r[0], r[1], label]
     end
   end
 

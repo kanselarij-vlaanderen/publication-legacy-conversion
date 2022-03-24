@@ -37,10 +37,10 @@ module Configuration
   end
 
   module Output
-    def self.government_domains
+    def self.government_domains &block
       output_dir = Configuration::Environment.output_dir
       file = File.join output_dir, "government-domains-mapping.csv"
-      return CSV.open file, "wt", encoding: "UTF-8"
+      return CSV.open file, "wt", encoding: "UTF-8", quote_empty: false, &block
     end
   end
 
