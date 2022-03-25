@@ -62,7 +62,7 @@ def run(publicaties, actions)
 
   if actions.include? "convert"
     file_timestamp = DateTime.now.strftime("%Y%m%d%H%M%S")
-    publications_ttl_output_file_name = "import-legacy-publications"
+    publications_ttl_output_file_name = "legacy-publications"
     publications_ttl_output_file = "#{Configuration::Environment.output_dir}/#{file_timestamp}-#{publications_ttl_output_file_name}"
     public_ttl_output_file = "#{Configuration::Environment.output_dir}/#{file_timestamp}-public"
 
