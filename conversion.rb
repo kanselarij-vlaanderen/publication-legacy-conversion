@@ -50,50 +50,55 @@ PROVISIONAL_BELEIDSDOMEIN_FULL_NAME = PUB['beleidsdomein-full-name#provisioir']
 PUBLICATIE_STATUS_TE_PUBLICEREN = RDF::URI "http://themis.vlaanderen.be/id/concept/publicatie-status/fa62e050-3960-440d-bed9-1c3d3e9923a8"
 PUBLICATIE_STATUS_GEPUBLICEERD = RDF::URI "http://themis.vlaanderen.be/id/concept/publicatie-status/2f8dc814-bd91-4bcf-a823-baf1cdc42475"
 
-def run(publicaties = nil)
+def run(publicaties, actions)
   Mu.log.info "[STARTED] Starting publication legacy conversion"
-  publicaties = AccessDB.nodes if publicaties.nil?
 
-  ConvertGovernmentDomains.validate publicaties.map { |n| AccessDB.record n }
-
-  file_timestamp = DateTime.now.strftime("%Y%m%d%H%M%S")
-  publications_ttl_output_file_name = "import-legacy-publications"
-  publications_ttl_output_file = "#{Configuration::Environment.output_dir}/#{file_timestamp}-#{publications_ttl_output_file_name}"
-  public_ttl_output_file = "#{Configuration::Environment.output_dir}/#{file_timestamp}-public"
-
-  $errors_csv = CSV.open(
-    "#{Configuration::Environment.output_dir}/#{file_timestamp}-errors.csv", mode="a+", encoding: "UTF-8")
-
-  Mu.log.info "-- Input file : #{AccessDB.input_file}"
-  Mu.log.info "-- Output file : #{publications_ttl_output_file}"
-
-  $kanselarij_graph = RDF::Graph.new
-  $public_graph = RDF::Graph.new
-
-  batch_number = 1
-  batch_size = 1000
-  publicaties.each_with_index do |publicatie, index|
-    dossiernummer = publicatie.css('dossiernummer').text
-    Mu.log.info "Processing dossiernummer #{dossiernummer} (#{index + 1}/#{publicaties.size}) ... "
-    process_publicatie publicatie
-    Mu.log.info "Processing dossiernummer #{dossiernummer} DONE."
-
-    if (index > 0 and index % batch_size == 0) or index == publicaties.size - 1
-      Mu.log.info "[ONGOING] Writing generated data to file for records #{(batch_number - 1) * batch_size + 1} until #{[batch_number * batch_size, index + 1].min}..."
-      RDF::Writer.open("#{publications_ttl_output_file}-#{batch_number}.ttl") { |writer| writer << $kanselarij_graph }
-      File.open("#{publications_ttl_output_file}-#{batch_number}.graph", "w+") { |f| f.puts(KANSELARIJ_GRAPH) }
-      Mu.log.info "done"
-      $kanselarij_graph = RDF::Graph.new
-      batch_number += 1
+  if actions.include? "validate"
+    errors = ConvertGovernmentDomains.validate publicaties.map { |n| AccessDB.record n }
+    if errors.any?
+      raise StandardError.new errors.join('\n')
     end
   end
 
-  RDF::Writer.open("#{public_ttl_output_file}.ttl") { |writer| writer << $public_graph }
-  File.open("#{public_ttl_output_file}.graph", "w+") { |f| f.puts(PUBLIC_GRAPH) }
+  if actions.include? "convert"
+    file_timestamp = DateTime.now.strftime("%Y%m%d%H%M%S")
+    publications_ttl_output_file_name = "import-legacy-publications"
+    publications_ttl_output_file = "#{Configuration::Environment.output_dir}/#{file_timestamp}-#{publications_ttl_output_file_name}"
+    public_ttl_output_file = "#{Configuration::Environment.output_dir}/#{file_timestamp}-public"
 
-  $errors_csv.close
-  Mu.log.info "Processed #{publicaties.size} records."
+    $errors_csv = CSV.open(
+      "#{Configuration::Environment.output_dir}/#{file_timestamp}-errors.csv", mode="a+", encoding: "UTF-8")
 
+    Mu.log.info "-- Input file : #{AccessDB.input_file}"
+    Mu.log.info "-- Output file : #{publications_ttl_output_file}"
+
+    $kanselarij_graph = RDF::Graph.new
+    $public_graph = RDF::Graph.new
+
+    batch_number = 1
+    batch_size = 1000
+    publicaties.each_with_index do |publicatie, index|
+      dossiernummer = publicatie.css('dossiernummer').text
+      Mu.log.info "Processing dossiernummer #{dossiernummer} (#{index + 1}/#{publicaties.size}) ... "
+      process_publicatie publicatie
+      Mu.log.info "Processing dossiernummer #{dossiernummer} DONE."
+
+      if (index > 0 and index % batch_size == 0) or index == publicaties.size - 1
+        Mu.log.info "[ONGOING] Writing generated data to file for records #{(batch_number - 1) * batch_size + 1} until #{[batch_number * batch_size, index + 1].min}..."
+        RDF::Writer.open("#{publications_ttl_output_file}-#{batch_number}.ttl") { |writer| writer << $kanselarij_graph }
+        File.open("#{publications_ttl_output_file}-#{batch_number}.graph", "w+") { |f| f.puts(KANSELARIJ_GRAPH) }
+        Mu.log.info "done"
+        $kanselarij_graph = RDF::Graph.new
+        batch_number += 1
+      end
+    end
+
+    RDF::Writer.open("#{public_ttl_output_file}.ttl") { |writer| writer << $public_graph }
+    File.open("#{public_ttl_output_file}.graph", "w+") { |f| f.puts(PUBLIC_GRAPH) }
+
+    $errors_csv.close
+    Mu.log.info "Processed #{publicaties.size} records."
+  end
 end
 
 def process_publicatie(publicatie)
