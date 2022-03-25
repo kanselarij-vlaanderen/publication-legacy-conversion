@@ -34,11 +34,17 @@ contains the errors encountered during the conversion
 ## Reference
 ### API
 ```
-POST /ingest?range=start,end&take=number&dossiernummer=123252,321240
+POST /api?actions=validate,convert&range=start,end&take=number&dossiernummer=123252,321240
 ```
-Endpoint to start a conversion.
+Endpoint to trigger validation and/or conversion.
 
-One of the following query params can be specified to run the conversion only on a subset of publications from the Access DB
-- `range`: specifying number of start and end nod
-- `take`: taking each `take`th element into account
+Whether validation and/or conversion are triggerd is determined by:
+- `actions`:
+  - validate: determine whether the conversion is configured correctly for the provided AccessDB file
+    currently the only checks run over the beleidsdomeinen
+  - convert: convert the legacy publication-flows
+
+One of the following query params can be specified to run the validation/conversion only on a subset of publications from the Access DB
+- `range`: specifying number of start and end node
+- `take`: taking each nth element into account
 - `dossiernummer`: specify dossiernummer(s)
