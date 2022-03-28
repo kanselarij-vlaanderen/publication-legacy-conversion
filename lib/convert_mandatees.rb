@@ -27,6 +27,7 @@ module ConvertMandatees
             OPTIONAL { ?mandateeUri <http://purl.org/dc/terms/title> ?title . }
             FILTER ( ?start < #{dossier_date_escaped})
             FILTER ( !bound(?end) || ?end > #{dossier_date_escaped})
+            FILTER STRSTARTS(STR(?mandateeUri), "http://themis.vlaanderen.be")
           }
         }
       }
@@ -65,6 +66,8 @@ module ConvertMandatees
                 FILTER (contains(lcase(str(?name)), #{minister_escaped}))
                 FILTER (?start <= #{dossier_date_escaped})
                 FILTER (!bound(?end) || ?end >= #{dossier_date_escaped})
+
+              FILTER STRSTARTS(STR(?mandateeUri), "http://themis.vlaanderen.be")
             }
           }
         }
