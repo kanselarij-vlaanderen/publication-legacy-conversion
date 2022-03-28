@@ -86,6 +86,8 @@ def run(publicaties = nil)
     end
   end
 
+  $errors_csv.close
+
   Mu.log.info "Processed #{publicaties.size} records."
 
 end
