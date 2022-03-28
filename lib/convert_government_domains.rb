@@ -26,7 +26,7 @@ module ConvertGovernmentDomains
 
   def self.setup_ignore_set
     ignore_csv = Configuration::Files.government_domains_ignore
-    ignore_list = ignore_csv.to_a.flatten
+    ignore_list = ignore_csv.flatten
     Set.new ignore_list
   end
 

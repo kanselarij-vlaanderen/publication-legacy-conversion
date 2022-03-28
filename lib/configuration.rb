@@ -22,7 +22,7 @@ module Configuration
 
     def self.government_domains_ignore
       path = File.join("/app/configuration/government-domains-ignore.csv")
-      return CSV.open path, "rt", encoding: "UTF-8"
+      return CSV.read path, encoding: "UTF-8"
     end
 
     def self.mandatees_corrections
