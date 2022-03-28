@@ -64,7 +64,6 @@ def run(publicaties, actions)
     file_timestamp = DateTime.now.strftime("%Y%m%d%H%M%S")
     publications_ttl_output_file_name = "legacy-publications"
     publications_ttl_output_file = "#{Configuration::Environment.output_dir}/#{file_timestamp}-#{publications_ttl_output_file_name}"
-    public_ttl_output_file = "#{Configuration::Environment.output_dir}/#{file_timestamp}-public"
 
     $errors_csv = CSV.open(
       "#{Configuration::Environment.output_dir}/#{file_timestamp}-errors.csv", mode="a+", encoding: "UTF-8")
@@ -73,7 +72,6 @@ def run(publicaties, actions)
     Mu.log.info "-- Output file : #{publications_ttl_output_file}"
 
     $kanselarij_graph = RDF::Graph.new
-    $public_graph = RDF::Graph.new
 
     batch_number = 1
     batch_size = 1000
@@ -92,9 +90,6 @@ def run(publicaties, actions)
         batch_number += 1
       end
     end
-
-    RDF::Writer.open("#{public_ttl_output_file}.ttl") { |writer| writer << $public_graph }
-    File.open("#{public_ttl_output_file}.graph", "w+") { |f| f.puts(PUBLIC_GRAPH) }
 
     $errors_csv.close
     Mu.log.info "Processed #{publicaties.size} records."
