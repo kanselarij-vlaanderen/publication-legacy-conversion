@@ -1,6 +1,7 @@
 module ConvertGovernmentDomains
   def self.initialize
     setup_mapping
+    @corrections_map = setup_corrections_map
     @ignore_set = setup_ignore_set
   end
 
@@ -16,6 +17,11 @@ module ConvertGovernmentDomains
     @mapping = @mapping_info.map { |row|
       [row[:abbr], row[:uri]]
     } .to_h
+  end
+
+  def self.setup_corrections_map
+    corrections = Configuration::Files.government_domains_corrections
+    corrections.to_h
   end
 
   def self.setup_ignore_set
@@ -68,6 +74,7 @@ module ConvertGovernmentDomains
     # to_a: avoid lazy enumerator
     beleidsdomeinen = publication_records.flat_map { |r| prepare r }.uniq.to_a
     missing_beleidsdomeinen = beleidsdomeinen.select do |domein|
+      domein = @corrections_map.fetch(domein, domein)
       not_found = !(@mapping.include? domein)
       required = !(@ignore_set === domein)
       not_found && required
@@ -115,6 +122,8 @@ module ConvertGovernmentDomains
     beleidsdomeinen = prepare rec
 
     return beleidsdomeinen.flat_map do |d|
+      d = @corrections_map.fetch(d, d)
+
       uri = @mapping[d]
       if uri.nil?
         $errors_csv << [rec.dossiernummer, "government-domain", "not-found", d]

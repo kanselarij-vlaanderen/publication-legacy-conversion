@@ -15,6 +15,11 @@ module Configuration
       return CSV.read path, encoding: "UTF-8"
     end
 
+    def self.government_domains_corrections
+      path = File.join("/app/configuration/government-domains-corrections.csv")
+      return CSV.read path, encoding: "UTF-8"
+    end
+
     def self.government_domains_ignore
       path = File.join("/app/configuration/government-domains-ignore.csv")
       return CSV.open path, "rt", encoding: "UTF-8"
