@@ -35,16 +35,18 @@ module ConvertMandatees
       mandatees_results = LinkedDB.query(query)
 
       grouped_mandatees = mandatees_results.group_by { |it| it[:person] }
-      mandatees = grouped_mandatees.flat_map { |k, mandatee_results| process_mandatee_results(rec, bevoegde_ministers, mandatee_results) }
+      mandatees = grouped_mandatees.flat_map { |k, mandatee_results|
+        process_mandatee_results(rec, bevoegde_ministers, mandatee_results, query)
+      }
 
       return mandatees
     else
       bevoegde_ministers = bevoegde_ministers.split('/')
         .map(&:strip).map(&:downcase)
-        .map { |minister| @replacements.fetch minister, minister }
+        .map { |minister_accdb| @replacements.fetch minister_accdb, minister_accdb }
 
-      mandatees = bevoegde_ministers.flat_map do |minister|
-        minister_escaped = minister.sparql_escape
+      mandatees = bevoegde_ministers.flat_map do |minister_accdb|
+        minister_escaped = minister_accdb.sparql_escape
 
         query = %{
           PREFIX mandaat: <http://data.vlaanderen.be/ns/mandaat#>
@@ -74,7 +76,7 @@ module ConvertMandatees
 
         mandatees_results = LinkedDB::query(query)
 
-        mandatees = process_mandatee_results rec, minister, mandatees_results.to_a
+        mandatees = process_mandatee_results(rec, minister_accdb, mandatees_results.to_a, query)
         mandatees
       end
 
@@ -83,11 +85,11 @@ module ConvertMandatees
   end
 
   private
-  def self.process_mandatee_results rec, minister, mandatees_results
+  def self.process_mandatee_results rec, minister_accdb, mandatees_results, query
     dossier_date = get_dossier_date rec
 
     if mandatees_results.length == 0
-      $errors_csv << [rec.dossiernummer, "mandatee", "not-found", minister, dossier_date]
+      $errors_csv << [rec.dossiernummer, 'mandataris', 'not-found', 'used:', nil, 'query params: mandataris, dossier datum', minister_accdb, dossier_date, query]
       return []
     end
 
@@ -95,12 +97,12 @@ module ConvertMandatees
     if mandatees_results_title.length >= 1
       mandatee_result = mandatees_results_title.first
       if mandatees_results_title.length > 1
-        $errors_csv << [rec.dossiernummer, "mandatee", "found-multiple", minister, dossier_date, mandatee_result[:mandateeUri].value]
+        $errors_csv << [rec.dossiernummer, 'mandataris', 'found-multiple', 'used:', mandatee_result[:mandateeUri].value, 'query params: mandataris, dossier datum', minister_accdb, dossier_date, query]
       end
     else
       mandatee_result = mandatees_results.first
       if mandatees_results.length > 1
-        $errors_csv << [rec.dossiernummer, "mandatee", "found-multiple", minister, dossier_date, mandatee_result[:mandateeUri].value]
+        $errors_csv << [rec.dossiernummer, 'mandataris', 'found-multiple', 'used:', mandatee_result[:mandateeUri].value, 'query params: mandataris, dossier datum', minister_accdb, dossier_date, query]
       end
     end
 
