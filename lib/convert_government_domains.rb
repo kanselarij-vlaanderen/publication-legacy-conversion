@@ -67,11 +67,9 @@ module ConvertGovernmentDomains
   def self.validate_records publication_records
     # to_a: avoid lazy enumerator
     beleidsdomeinen = publication_records.flat_map { |r| prepare r }.uniq.to_a
-    Mu.log.info beleidsdomeinen.to_s
     missing_beleidsdomeinen = beleidsdomeinen.select do |domein|
       not_found = !(@mapping.include? domein)
       required = !(@ignore_set === domein)
-      Mu.log.info domein + ':' + (not_found && required).to_s
       not_found && required
     end
     
