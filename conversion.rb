@@ -45,7 +45,7 @@ PUBLIC_GRAPH = "http://mu.semte.ch/graphs/public"
 KANSELARIJ_GRAPH = "http://mu.semte.ch/graphs/organizations/kanselarij"
 
 DATASOURCE = RDF::URI "http://vlaanderen.be/dossier-opvolging-access-db/DOSSIEROPVOLGING-H.xml"
-PROVISIONAL_BELEIDSDOMEIN_FULL_NAME = PUB['beleidsdomein-full-name#provisioir']
+PROVISIONAL_BELEIDSDOMEIN_FULL_NAME = PUB['beleidsdomein#provisioir']
 
 PUBLICATIE_STATUS_TE_PUBLICEREN = RDF::URI "http://themis.vlaanderen.be/id/concept/publicatie-status/fa62e050-3960-440d-bed9-1c3d3e9923a8"
 PUBLICATIE_STATUS_GEPUBLICEERD = RDF::URI "http://themis.vlaanderen.be/id/concept/publicatie-status/2f8dc814-bd91-4bcf-a823-baf1cdc42475"
