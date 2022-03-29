@@ -20,14 +20,18 @@ module ConvertMandatees
       query = %{
         SELECT ?mandateeUri ?title ?person WHERE {
           GRAPH <#{MINISTERS_GRAPH}> {
-            ?mandateeUri <http://data.vlaanderen.be/ns/mandaat#isBestuurlijkeAliasVan> ?person .
-            ?mandateeUri a <http://data.vlaanderen.be/ns/mandaat#Mandataris> ;
-                        <http://data.vlaanderen.be/ns/mandaat#start> ?start .
-            OPTIONAL { ?mandateeUri <http://data.vlaanderen.be/ns/mandaat#einde> ?end .}
-            OPTIONAL { ?mandateeUri <http://purl.org/dc/terms/title> ?title . }
-            FILTER ( ?start < #{dossier_date_escaped})
-            FILTER ( !bound(?end) || ?end > #{dossier_date_escaped})
+            ?mandateeUri a <http://data.vlaanderen.be/ns/mandaat#Mandataris> .
             FILTER STRSTARTS(STR(?mandateeUri), "http://themis.vlaanderen.be")
+
+            # some mandatees are present twice in the database under two different URIs, one entry does not contain a title
+            OPTIONAL { ?mandateeUri <http://purl.org/dc/terms/title> ?title . }
+
+            ?mandateeUri <http://data.vlaanderen.be/ns/mandaat#start> ?start .
+            OPTIONAL { ?mandateeUri <http://data.vlaanderen.be/ns/mandaat#einde> ?end . }
+            FILTER (?start < #{dossier_date_escaped})
+            FILTER (!BOUND(?end) || ?end > #{dossier_date_escaped})
+
+            ?mandateeUri <http://data.vlaanderen.be/ns/mandaat#isBestuurlijkeAliasVan> ?person .
           }
         }
       }
@@ -49,27 +53,24 @@ module ConvertMandatees
         minister_escaped = minister_accdb.sparql_escape
 
         query = %{
-          PREFIX mandaat: <http://data.vlaanderen.be/ns/mandaat#>
-          PREFIX foaf: <http://xmlns.com/foaf/0.1/>
-          PREFIX dct: <http://purl.org/dc/terms/>
-
           SELECT ?mandateeUri ?title
           WHERE {
-              GRAPH <#{MINISTERS_GRAPH}>
-              {
-                ?mandateeUri a mandaat:Mandataris .
-
-                ?mandateeUri mandaat:isBestuurlijkeAliasVan ?person .
-                ?mandateeUri mandaat:start ?start .
-                OPTIONAL { ?mandateeUri mandaat:einde ?end . }
-                ?person foaf:familyName ?name .
-                # some mandatees are present twice in the database under two different URIs, one entry does not contain a title
-                OPTIONAL { ?mandateeUri dct:title ?title . }
-                FILTER (contains(lcase(str(?name)), #{minister_escaped}))
-                FILTER (?start <= #{dossier_date_escaped})
-                FILTER (!bound(?end) || ?end >= #{dossier_date_escaped})
-
+            GRAPH <#{MINISTERS_GRAPH}>
+            {
+              ?mandateeUri a <http://data.vlaanderen.be/ns/mandaat#Mandataris> .
               FILTER STRSTARTS(STR(?mandateeUri), "http://themis.vlaanderen.be")
+
+              # some mandatees are present twice in the database under two different URIs, one entry does not contain a title
+              OPTIONAL { ?mandateeUri <http://purl.org/dc/terms/title> ?title . }
+
+              ?mandateeUri <http://data.vlaanderen.be/ns/mandaat#start> ?start .
+              OPTIONAL { ?mandateeUri <http://data.vlaanderen.be/ns/mandaat#einde> ?end . }
+              FILTER (?start <= #{dossier_date_escaped})
+              FILTER (!BOUND(?end) || ?end >= #{dossier_date_escaped})
+
+              ?mandateeUri <http://data.vlaanderen.be/ns/mandaat#isBestuurlijkeAliasVan> ?person .
+              ?person <http://xmlns.com/foaf/0.1/familyName> ?name .
+              FILTER (CONTAINS(LCASE(STR(?name)), #{minister_escaped}))
             }
           }
         }
