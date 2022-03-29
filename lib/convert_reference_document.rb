@@ -87,12 +87,12 @@ module ConvertReferenceDocument
     case_uris = case_results.map { |r| r[:caseUri] }
     case_uris.uniq!
     if case_uris.length === 0
-      $errors_csv << [rec.dossiernummer, 'case', 'not-found', document_uris.map { |u| u.value }]
+      $errors_csv << [rec.dossiernummer, 'dossier', 'not-found', 'used:', nil, 'query parameters:', document_uris.map { |u| u.value }, case_query]
       return
     elsif case_uris.length >= 1
       case_result = case_results[0]
-      if case_results.length > 1
-        $errors_csv << [rec.dossiernummer, 'case', 'found-multiple', case_result[:caseUri].value, document_uris.map { |u| u.value }]
+      if case_uris.length > 1
+        $errors_csv << [rec.dossiernummer, 'dossier', 'found-multiple', 'used:', case_result[:caseUri].value, 'query parameters:' , document_uris.map { |u| u.value }, case_query]
       end
     end
     
