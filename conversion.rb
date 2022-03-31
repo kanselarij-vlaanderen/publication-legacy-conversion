@@ -98,6 +98,12 @@ end
 
 def process_publicatie(publicatie)
     dossiernummer = publicatie.css('dossiernummer').text || ""
+
+    if dossiernummer == "0-subsidie"
+      # 0-subsidie publications are exported to a seperate CSV file and should not be imported in Kaleidos
+      return
+    end
+
     opschrift =  publicatie.css('opschrift').text || ""
     datum = publicatie.css('datum').text || ""
     soort = publicatie.css('soort').text || ""
