@@ -1,80 +1,101 @@
 module ConvertGovernmentDomains
   def self.initialize
-    @mapping = setup_mapping
+    setup_mapping
+    @corrections_map = setup_corrections_map
     @ignore_set = setup_ignore_set
   end
 
   def self.setup_mapping
-    mapping_keys_csv = Configuration::Files.government_domains_keys.to_h
-    mapping_uris_csv = Configuration::Files.government_domains_uris.to_h
-    return mapping_keys_csv.map do |key, mapping_key|
-      uri_str = mapping_uris_csv[mapping_key]
-      uri = RDF::URI uri_str
-      [key, uri]
-    end .to_h
+    mapping_info_csv = Configuration::Files.government_domains
+    @mapping_info = mapping_info_csv.map { |row|
+      {
+        abbr: row[0].strip.downcase,
+        label: row[1].strip,
+        uri: RDF::URI(row[2].strip)
+      }
+    }
+    @mapping = @mapping_info.map { |row|
+      [row[:abbr], row[:uri]]
+    } .to_h
+  end
+
+  def self.setup_corrections_map
+    corrections = Configuration::Files.government_domains_corrections
+    corrections.to_h
   end
 
   def self.setup_ignore_set
     ignore_csv = Configuration::Files.government_domains_ignore
-    ignore_list = ignore_csv.to_a.flatten
+    ignore_list = ignore_csv.flatten
     Set.new ignore_list
   end
 
   def self.validate publication_records
-    validate_mapping @mapping
-    validate_entries publication_records
+    errors_mapping = validate_mapping @mapping_info
+    errors_accessdb = validate_records publication_records
+    Array.new.concat(errors_mapping, errors_accessdb)
   end
 
-  def self.validate_mapping mapping
-    records = query_mapping mapping
-    
-    export_mapping records
+  # @param [Enumerator::Lazy] publication_records 
+  def self.validate_mapping mapping_info
+    validation_state = mapping_info.map do |csv_entry|
+      query = build_query csv_entry[:uri]
+      records = LinkedDB.query query
+      records = records.map { |r| { uri: r[:uri], label: r[:label].value } }
 
-    not_found = records.select { |r| r[2].nil? }
-    if !not_found.empty?
-      raise StandardError.new "Incorrect government domain mapping"
+      {
+        entry: csv_entry,
+        records: records,
+      }
     end
+
+    export_mapping validation_state
+
+    validation_state.each do |entry_state| 
+      if entry_state[:records].empty?
+        entry_state[:error] = "not in Kaleidos"
+      elsif entry_state[:records].length > 1
+        entry_state[:error] = "multiple in Kaleidos"
+      else
+        label_csv = entry_state[:entry][:label]
+        label_kaleidos_db = entry_state[:records].first[:label]
+        if !are_labels_equal(label_csv, label_kaleidos_db)
+          entry_state[:error] = "different in Kaleidos"
+        end
+      end
+    end
+
+    errors = validation_state.select { |r| r[:error] }
+    errors.map { |r| "beleidsdomein: #{r[:error]}: #{r[:entry][:label]}" }
   end
 
-  def self.validate_entries publication_records
-    beleidsdomeinen = publication_records.flat_map { |r| prepare r }.uniq
-    not_found = beleidsdomeinen.select do |domein|
+  # @param [Enumerator] publication_records 
+  def self.validate_records publication_records
+    # to_a: avoid lazy enumerator
+    beleidsdomeinen = publication_records.flat_map { |r| prepare r }.uniq.to_a
+    missing_beleidsdomeinen = beleidsdomeinen.select do |domein|
+      domein = @corrections_map.fetch(domein, domein)
       not_found = !(@mapping.include? domein)
       required = !(@ignore_set === domein)
-      next not_found && required
+      not_found && required
     end
-    if !not_found.empty?
-      raise StandardError.new "Unknown govenment domains: #{ not_found.join "," }"
-    end
+    
+    missing_beleidsdomeinen.map { |it| "beleidsdomein: not found in AccessDB: #{it}" }
   end
 
-  def self.export_mapping records
-    csv = Configuration::Output.government_domains
-    records.each do |r|
-      if r[2]
-        label = r[2][:label]
+  def self.export_mapping validation_state
+    Configuration::Output.government_domains do |csv|
+      validation_state.each do |entry_state|
+        csv << [entry_state[:entry][:label], entry_state[:records].first[:label]]
       end
-      csv << [r[0], r[1], label]
     end
   end
 
-  def self.query_mapping mapping
-    uris = mapping.values.uniq
-    uri_to_record = uris.map do |uri|
-      record = query uri
-      [uri, record]
-    end .to_h
-
-    return mapping.map do |k, uri|
-      [k, uri, uri_to_record[uri]]
-    end
-  end
-
-  def self.query uri
+  def self.build_query uri
     query = %{
       PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
 
-      SELECT ?label
+      SELECT ?uri ?label
       WHERE {
         GRAPH <http://mu.semte.ch/graphs/public> {
           BIND (#{ uri.sparql_escape } AS ?uri)
@@ -85,17 +106,6 @@ module ConvertGovernmentDomains
         }
       }
     }
-    triples = LinkedDB.query query
-    if triples.length > 1
-      raise StandardError.new "Unexpected number of results for uri <#{uri}>"
-    end
-
-    if triples.first
-      return { label: triples.first[:label].value }
-    else
-      return nil
-    end
-
   end
 
   def self.prepare rec
@@ -104,7 +114,7 @@ module ConvertGovernmentDomains
     return [] if beleidsdomein.nil?
 
     beleidsdomeinen = beleidsdomein.split '/'
-    beleidsdomeinen.each { |d| d.strip!; d.downcase! }
+    beleidsdomeinen.map { |d| d.strip.downcase }
   end
 
   # @return [Array] always returns an array (empty if no results)
@@ -112,6 +122,8 @@ module ConvertGovernmentDomains
     beleidsdomeinen = prepare rec
 
     return beleidsdomeinen.flat_map do |d|
+      d = @corrections_map.fetch(d, d)
+
       uri = @mapping[d]
       if uri.nil?
         $errors_csv << [rec.dossiernummer, "government-domain", "not-found", d]
@@ -120,6 +132,24 @@ module ConvertGovernmentDomains
 
       next uri
     end
+  end
+
+  private
+  # @param [String] label1
+  # @param [String] label2
+  def self.are_labels_equal label1, label2
+    label1 = cleanup_label label1
+    label2 = cleanup_label label2
+    return label1 == label2
+  end
+
+  def self.cleanup_label label
+    label_copy = +label.clone
+    label_copy.downcase!
+    label_copy.gsub! ' en ', ' '
+    label_copy.gsub! '&', ' '
+    label_copy.gsub! ' ', ''
+    return label_copy
   end
 
   initialize

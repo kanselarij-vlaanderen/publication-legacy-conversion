@@ -10,19 +10,19 @@ module Configuration
       return CSV.open path, "rt", encoding: "UTF-8"
     end
 
-    def self.government_domains_keys
-      path = File.join("/app/configuration/government-domains-keys.csv")
-      return CSV.open path, "rt", encoding: "UTF-8"
+    def self.government_domains
+      path = File.join("/app/configuration/government-domains.csv")
+      return CSV.read path, encoding: "UTF-8"
     end
 
-    def self.government_domains_uris
-      path = File.join("/app/configuration/government-domains-uris.csv")
-      return CSV.open path, "rt", encoding: "UTF-8"
+    def self.government_domains_corrections
+      path = File.join("/app/configuration/government-domains-corrections.csv")
+      return CSV.read path, encoding: "UTF-8"
     end
 
     def self.government_domains_ignore
       path = File.join("/app/configuration/government-domains-ignore.csv")
-      return CSV.open path, "rt", encoding: "UTF-8"
+      return CSV.read path, encoding: "UTF-8"
     end
 
     def self.mandatees_corrections
@@ -32,10 +32,10 @@ module Configuration
   end
 
   module Output
-    def self.government_domains
+    def self.government_domains &block
       output_dir = Configuration::Environment.output_dir
       file = File.join output_dir, "government-domains-mapping.csv"
-      return CSV.open file, "wt", encoding: "UTF-8"
+      return CSV.open file, "wt", encoding: "UTF-8", quote_empty: false, &block
     end
   end
 
