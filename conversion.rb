@@ -99,11 +99,6 @@ end
 def process_publicatie(publicatie)
     dossiernummer = publicatie.css('dossiernummer').text || ""
 
-    if dossiernummer == "0-subsidie"
-      # 0-subsidie publications are exported to a seperate CSV file and should not be imported in Kaleidos
-      return
-    end
-
     opschrift =  publicatie.css('opschrift').text || ""
     datum = publicatie.css('datum').text || ""
     soort = publicatie.css('soort').text || ""
@@ -128,6 +123,18 @@ def process_publicatie(publicatie)
 
     rec = AccessDB::Record.new(publicatie)
 
+    publication_number, publication_number_suffix = convert_publication_number rec
+
+    if publication_number == 0 and publication_number_suffix&.downcase == 'subsidie'
+      # 0-subsidie publications are exported to a seperate CSV file and should not be imported in Kaleidos
+      return
+    end
+
+    if publication_number.nil?
+      $errors_csv << [rec.dossiernummer, 'dossiernummer', 'irregular']
+      return
+    end
+
     if opschrift.empty? and datum.empty? and document_nr.empty?
       $errors_csv << [dossiernummer, "no-sufficient-data", "basic", opschrift, datum, document_nr]
       return
@@ -141,7 +148,10 @@ def process_publicatie(publicatie)
 
     opening_date = get_opening_date rec
 
-    identification_uri = create_identification(dossiernummer)
+    identification_uri = create_identification(
+      publication_number: publication_number,
+      publication_number_suffix: publication_number_suffix
+    )
 
     mandatee_uris = ConvertMandatees.convert(rec)
 
@@ -224,14 +234,39 @@ def get_opening_date rec
   rec.opdracht_formeel_ontvangen || rec.datum
 end
 
-def create_identification(dossiernummer)
-  structured_identifier = create_structured_identifier(dossiernummer)
+def convert_publication_number r
+  dossiernummer = r.dossiernummer.strip
+  identifier_match = dossiernummer.match('(?<number>\d+)[-/]?(?<version>.+)?')
+  if identifier_match.nil?
+    return nil
+  end
+
+  publication_number = Integer identifier_match[:number]
+  publication_number_suffix = identifier_match[:version]
+  if publication_number_suffix
+    publication_number_suffix = publication_number_suffix.strip
+    publication_number_suffix = nil if publication_number_suffix.empty?
+  end
+
+  return publication_number, publication_number_suffix
+end
+
+def create_identification args
+  structured_identifier = create_structured_identifier(
+    publication_number: args[:publication_number],
+    publication_number_suffix: args[:publication_number_suffix]
+  )
+
+  publication_number_full = args[:publication_number].to_s
+  if args[:publication_number_suffix]
+    publication_number_full = publication_number_full + ' ' + args[:publication_number_suffix]
+  end
 
   uuid = Mu.generate_uuid()
   identification_uri = RDF::URI(BASE_URI % { :resource => 'identificator', :id => uuid})
   $kanselarij_graph << RDF.Statement(identification_uri, RDF.type, ADMS.Identifier)
   $kanselarij_graph << RDF.Statement(identification_uri, MU_CORE.uuid, uuid)
-  $kanselarij_graph << RDF.Statement(identification_uri, SKOS.notation, dossiernummer)
+  $kanselarij_graph << RDF.Statement(identification_uri, SKOS.notation, publication_number_full)
   $kanselarij_graph << RDF.Statement(identification_uri, ADMS.schemaAgency, 'ovrb')
   $kanselarij_graph << RDF.Statement(identification_uri, GENERIEK.gestructureerdeIdentificator, structured_identifier)
   $kanselarij_graph << RDF.Statement(identification_uri, DCT.source, DATASOURCE)
@@ -239,17 +274,14 @@ def create_identification(dossiernummer)
   identification_uri
 end
 
-def create_structured_identifier(dossiernummer)
-  identificator = dossiernummer.match('(?<number>\d+)(?<version>[a-zA-Z0-9]*)?')
-  local_identificator = identificator[:number]
-  version_identificator = identificator[:version]
-
+# @param [String] dossiernummer
+def create_structured_identifier args
   uuid = Mu.generate_uuid()
   structured_identification_uri = RDF::URI(BASE_URI % { :resource => 'structured-identificator', :id => uuid})
   $kanselarij_graph << RDF.Statement(structured_identification_uri, RDF.type, GENERIEK.GestructureerdeIdentificator)
   $kanselarij_graph << RDF.Statement(structured_identification_uri, MU_CORE.uuid, uuid)
-  $kanselarij_graph << RDF.Statement(structured_identification_uri, GENERIEK.lokaleIdentificator, local_identificator)
-  $kanselarij_graph << RDF.Statement(structured_identification_uri, GENERIEK.versieIdentificator, version_identificator) if version_identificator
+  $kanselarij_graph << RDF.Statement(structured_identification_uri, GENERIEK.lokaleIdentificator, args[:publication_number])
+  $kanselarij_graph << RDF.Statement(structured_identification_uri, GENERIEK.versieIdentificator, args[:publication_number_suffix]) if args[:publication_number_suffix]
   $kanselarij_graph << RDF.Statement(structured_identification_uri, DCT.source, DATASOURCE)
 
   structured_identification_uri
