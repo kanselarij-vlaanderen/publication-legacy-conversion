@@ -497,14 +497,18 @@ def set_publicationflow(data)
   $kanselarij_graph << RDF.Statement(publication_uri, DCT.alternative, data[:short_title]) if data[:short_title]
   $kanselarij_graph << RDF.Statement(publication_uri, PUB.regelgevingType, data[:regulation_type]) if data[:regulation_type]
   $kanselarij_graph << RDF.Statement(publication_uri, PUB.publicatieWijze, data[:publication_mode]) if data[:publication_mode]
-  $kanselarij_graph << RDF.Statement(publication_uri, PUB.referentieDocument, data[:reference_document]) unless data[:reference_document].nil?
+  # Reference document link is disabled since document reference from Access export is too vague
+  # to uniquely identify the document that is subject of the publication. Only agendaitem-treatment can be identified.
+  # The regulation type of the publication cannot be used as additional filter
+  # since we don't have document types in Kaleidos DB for documents originating from Doris
+  # $kanselarij_graph << RDF.Statement(publication_uri, PUB.referentieDocument, data[:reference_document]) unless data[:reference_document].nil?
+  # $kanselarij_graph << RDF.Statement(publication_uri, FABIO.hasPageCount, data[:pages]) if data[:pages] > 0
   $kanselarij_graph << RDF.Statement(publication_uri, PUB.identifier, data[:numac_number]) if data[:numac_number]
   $kanselarij_graph << RDF.Statement(publication_uri, RDFS.comment, data[:remark]) if data[:remark]
   $kanselarij_graph << RDF.Statement(publication_uri, DOSSIER.openingsdatum, data[:opening_date].to_date)
   $kanselarij_graph << RDF.Statement(publication_uri, DOSSIER.sluitingsdatum, data[:closing_date].to_date) if data[:closing_date]
   $kanselarij_graph << RDF.Statement(publication_uri, EXT.legacyDocumentNumberMSAccess, data[:document_number]) unless data[:document_number].empty?
-  $kanselarij_graph << RDF.Statement(publication_uri, FABIO.hasPageCount, data[:pages]) if data[:pages] > 0
-  
+
   data[:beleidsdomein_uri_list].each do |beleidsdomein|
     $kanselarij_graph << RDF.Statement(publication_uri, PROVISIONAL_BELEIDSDOMEIN_FULL_NAME, beleidsdomein)
   end
