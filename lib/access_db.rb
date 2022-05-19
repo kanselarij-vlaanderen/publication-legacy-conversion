@@ -7,7 +7,7 @@ module AccessDB
     trefwoord: { tag: 'trefwoord' },
     bevoegde_ministers: { tag: 'bevoegde_x0020_minister_x0028_s_x0029_' },
     document_nr: { tag: 'document_x0020_nr' },
-    aantal_bladzijden: { tag: 'aantal_x0020_blz' },
+    aantal_bladzijden: { tag: 'aantal_x0020_blz', type: :integer },
     opdrachtgever: { tag: 'opdrachtgever' },
     opdracht_formeel_ontvangen: { tag: 'opdracht_x0020_formeel_x0020_ontvangen', type: :datetime },
     wijze_van_publicatie: { tag: 'wijze_x0020_van_x0020_publicatie' },
@@ -77,6 +77,8 @@ module AccessDB
       text = field_node.content
       if field[:type] === :datetime
         DateTime.strptime(text, '%Y-%m-%dT%H:%M:%S')
+      elsif field[:type] === :integer
+        text.to_i
       else
         text
       end
