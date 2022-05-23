@@ -75,14 +75,10 @@ module LegacyPublicationConversion
         publication_number, publication_number_suffix = convert_publication_number rec
 
         return false if publication_number == 0 and publication_number_suffix&.downcase == 'subsidie'
-        Mu.log.info "1"
         return false if publication_number.nil?
-        Mu.log.info "1"
         return false if rec.opschrift.nil? and rec.datum.nil? and rec.document_nr.nil?
-        Mu.log.info "1"
         dossier_date = get_dossier_date rec
         return false if dossier_date.nil?
-        Mu.log.info "1"
     end
 
     def self.query_publication_flow rec
