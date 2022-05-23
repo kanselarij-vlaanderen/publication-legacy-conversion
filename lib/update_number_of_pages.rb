@@ -61,11 +61,17 @@ module LegacyPublicationConversion
         raise AbortError.new "skip #{rec.dossiernummer}"
       end
 
-      publication_flow_uri = query_publication_flow rec
+      publication_flow_uri, number_of_pages = query_publication_flow rec
       if publication_flow_uri.nil?
         $errors_csv << [rec.dossiernummer, "no-Kaleidos-record", rec.dossiernummer]
         raise AbortError.new "no-Kaleidos-record #{rec.dossiernummer}"
       end
+
+      if not number_of_pages.nil?
+        $errors_csv << [rec.dossiernummer, "number-of-pages", "exists", rec.dossiernummer]
+        raise AbortError.new "number of pages exists for #{rec.dossiernummer}"
+      end
+
       set_number_of_pages publication_flow_uri, rec
     end
 
@@ -79,6 +85,8 @@ module LegacyPublicationConversion
         return false if rec.opschrift.nil? and rec.datum.nil? and rec.document_nr.nil?
         dossier_date = get_dossier_date rec
         return false if dossier_date.nil?
+
+        return true
     end
 
     def self.query_publication_flow rec
@@ -91,11 +99,15 @@ module LegacyPublicationConversion
       sparql = %{
         PREFIX adms: <http://www.w3.org/ns/adms#>
         PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
-        SELECT ?publicationFlowUri
+        PREFIX fabio: <http://purl.org/spar/fabio/>
+        
+        SELECT ?publicationFlowUri ?numberOfPages
         WHERE {
           GRAPH <http://mu.semte.ch/graphs/organizations/kanselarij> {
             ?publicationFlowUri adms:identifier ?publicationNumberUri .
             ?publicationNumberUri skos:notation #{publication_number_full.sparql_escape} .
+            
+            OPTIONAL { ?publicationFlowUri fabio:hasPageCount ?numberOfPages . }
           }
         }
       }
@@ -111,7 +123,7 @@ module LegacyPublicationConversion
         end
       end
       
-      result[:publicationFlowUri]
+      return result[:publicationFlowUri], result[:numberOfPages]&.value
     end
 
     def self.set_number_of_pages(publication_flow_uri, rec)
