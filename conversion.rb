@@ -7,6 +7,7 @@ require_relative 'lib/convert_mandatees.rb'
 require_relative 'lib/convert_reference_document.rb'
 require_relative 'lib/convert_regulation_type.rb'
 require_relative 'lib/convert_government_domains.rb'
+require_relative 'lib/update_number_of_pages.rb'
 
 BASE_URI = 'http://themis.vlaanderen.be/id/%{resource}/%{id}'
 CONCEPT_URI = 'http://themis.vlaanderen.be/id/concept/%{resource}/%{id}'
@@ -93,6 +94,11 @@ def run(publicaties, actions)
 
     $errors_csv.close
     Mu.log.info "Processed #{publicaties.size} records."
+  end
+
+  if actions.include? "update--number-of-pages"
+    publication_flow_records = publicaties.map { |node| AccessDB.record(node) }
+    LegacyPublicationConversion::UpdateNumberOfPages.run publication_flow_records
   end
 end
 
