@@ -110,21 +110,21 @@ module LegacyPublicationConversion
         }
       )
       results = LinkedDB.query(sparql)
-      if results.length === 0
-        $errors_csv << [rec.dossiernummer, 'publication-flow', 'not-found', 'used:', nil, 'query parameters:', rec.dossiernummer, sparql]
-        return
-      elsif results.length >= 1
-        result = results[0]
-        if results.length > 1
-          $errors_csv << [rec.dossiernummer, 'dossier', 'found-multiple', 'used:', result[:publicationFlowUri].value, 'query parameters:' , rec.dossiernummer, sparql]
-        end
+      if results.empty?
+        @errors_csv << [rec.dossiernummer, "info - no resource found", sparql]
+        nil
+      elsif results.length > 1
+        @errors_csv << [rec.dossiernummer, "info - found multiple resources", sparql]
+        nil
+      else
+        [results[0][:publicationFlowUri], results[0][:numberOfExtracts]&.value]
       end
-      
-      return result[:publicationFlowUri], result[:numberOfExtracts]&.value
     end
 
     def self.set_number_of_extracts(publication_flow_uri, rec)
-      $kanselarij_graph << RDF.Statement(publication_flow_uri, PUB.aantalUittreksels, rec.aantal_uittreksels) if rec.aantal_uittreksels
+      return unless rec.aantal_uittreksels
+
+      @kanselarij_graph << RDF.Statement(publication_flow_uri, PUB.aantalUittreksels, rec.aantal_uittreksels)
     end
   end
 end
