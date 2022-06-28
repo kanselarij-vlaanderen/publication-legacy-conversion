@@ -2,14 +2,16 @@ module LegacyPublicationConversion
   class AbortError < StandardError; end
 
   module UpdateNumberOfExtracts
-    def self.run records
-      file_timestamp = DateTime.now.strftime('%Y%m%d%H%M%S')
-      publications_ttl_output_file_name = 'legacy-publications--update--number-of-extracts'
-      publications_ttl_output_file = "#{Configuration::Environment.output_dir}/#{file_timestamp}-#{publications_ttl_output_file_name}"
+    @kanselarij_graph = nil
+    @errors_csv = nil
 
-      $errors_csv = CSV.open(
-        "#{Configuration::Environment.output_dir}/#{file_timestamp}-errors.csv", mode = 'a+', encoding: 'UTF-8'
-      )
+    def self.run(records)
+      file_timestamp = DateTime.now.strftime("%Y%m%d%H%M%S")
+      publications_ttl_output_file_name = "legacy-publications--update--number-of-extracts"
+      publications_ttl_output_file = File.join(Configuration::Environment.output_dir,
+                                               "#{file_timestamp}-#{publications_ttl_output_file_name}")
+      @errors_csv = CSV.open(File.join(Configuration::Environment.output_dir, "#{file_timestamp}-errors.csv"), "a+",
+                             encoding: "UTF-8")
 
       Mu.log.info "-- Input file : #{AccessDB.input_file}"
       Mu.log.info "-- Output file : #{publications_ttl_output_file}"
@@ -24,8 +26,8 @@ module LegacyPublicationConversion
         begin
           Mu.log.info "Updating number of pages for ##{dossiernummer} (#{index + 1}/#{records.size}) ... "
 
-          kanselarij_graph.transaction(mutable:true) do |tx|
-            $kanselarij_graph = tx
+          kanselarij_graph.transaction(mutable: true) do |tx|
+            @kanselarij_graph = tx
             process_record record
           end
 
@@ -35,41 +37,40 @@ module LegacyPublicationConversion
           # record can not be converted, continue
         end
 
-        if (index > 0 and index % batch_size == 0) or index == records.size - 1
-          Mu.log.info "[ONGOING] Writing generated data to file for records #{(batch_number - 1) * batch_size + 1} until #{[
-            batch_number * batch_size, index + 1
-          ].min}..."
-          RDF::Writer.open("#{publications_ttl_output_file}-#{batch_number}.ttl") do |writer|
-            writer << kanselarij_graph
-          end
-          File.open("#{publications_ttl_output_file}-#{batch_number}.graph", 'w+') do |f|
-            f.puts(KANSELARIJ_GRAPH)
-          end
-          Mu.log.info 'done'
-          kanselarij_graph = RDF::Graph.new
-          batch_number += 1
+        next unless (index % batch_size).zero? || index == records.size - 1
+
+        Mu.log.info "[ONGOING] Writing generated data to file for records "\
+                    "#{(batch_number - 1) * batch_size + 1} until #{[batch_number * batch_size, index + 1].min}..."
+        RDF::Writer.open("#{publications_ttl_output_file}-#{batch_number}.ttl") do |writer|
+          writer << kanselarij_graph
         end
+        File.open("#{publications_ttl_output_file}-#{batch_number}.graph", "w+") do |f|
+          f.puts(KANSELARIJ_GRAPH)
+        end
+        Mu.log.info "done"
+        kanselarij_graph = RDF::Graph.new
+        batch_number += 1
       end
 
-      $errors_csv.close
+      @errors_csv.close
       Mu.log.info "Processed #{records.size} records."
     end
 
-    def self.process_record rec
-      if not should_convert? rec
-        $errors_csv << [rec.dossiernummer, "skip"]
-        raise AbortError.new "skip #{rec.dossiernummer}"
+    def self.process_record(rec)
+      unless should_convert? rec
+        @errors_csv << [rec.dossiernummer, "skip - should not convert"]
+        raise AbortError, "skip #{rec.dossiernummer}"
       end
 
       publication_flow_uri, number_of_extracts = query_publication_flow rec
       if publication_flow_uri.nil?
-        $errors_csv << [rec.dossiernummer, "no-Kaleidos-record", rec.dossiernummer]
-        raise AbortError.new "no-Kaleidos-record #{rec.dossiernummer}"
+        @errors_csv << [rec.dossiernummer, "skip - no resource found"]
+        raise AbortError, "no-Kaleidos-record #{rec.dossiernummer}"
       end
 
-      if not number_of_extracts.nil?
-        $errors_csv << [rec.dossiernummer, "number-of-extracts", "exists", rec.dossiernummer]
-        raise AbortError.new "number of extracts exists for #{rec.dossiernummer}"
+      unless number_of_extracts.nil?
+        @errors_csv << [rec.dossiernummer, "skip - resource already has number of extracts"]
+        raise AbortError, "number of extracts exists for #{rec.dossiernummer}"
       end
 
       set_number_of_extracts publication_flow_uri, rec
@@ -77,26 +78,23 @@ module LegacyPublicationConversion
 
     # checks whether a publication-flow should be converted
     # These are the same checks as in conversion.rb
-    def self.should_convert? rec
+    def self.should_convert?(rec)
       publication_number, publication_number_suffix = convert_publication_number rec
 
-      return false if publication_number == 0 and publication_number_suffix&.downcase == 'subsidie'
+      return false if publication_number.zero? && publication_number_suffix&.downcase == "subsidie"
       return false if publication_number.nil?
-      return false if rec.opschrift.nil? and rec.datum.nil? and rec.document_nr.nil?
+      return false if rec.opschrift.nil? && rec.datum.nil? && rec.document_nr.nil?
+
       dossier_date = get_dossier_date rec
       return false if dossier_date.nil?
 
-      return true
+      true
     end
 
-    def self.query_publication_flow rec
+    def self.query_publication_flow(rec)
       publication_number, publication_number_suffix = convert_publication_number rec
-      publication_number_full = publication_number.to_s
-      if publication_number_suffix
-        publication_number_full = publication_number_full + ' ' + publication_number_suffix
-      end
-
-      sparql = %{
+      publication_number_full = "#{publication_number} #{publication_number_suffix}".strip
+      sparql = %(
         PREFIX adms: <http://www.w3.org/ns/adms#>
         PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
         PREFIX pub: <http://mu.semte.ch/vocabularies/ext/publicatie/>
@@ -106,12 +104,11 @@ module LegacyPublicationConversion
           GRAPH <http://mu.semte.ch/graphs/organizations/kanselarij> {
             ?publicationFlowUri adms:identifier ?publicationNumberUri .
             ?publicationNumberUri skos:notation #{publication_number_full.sparql_escape} .
-            
+
             OPTIONAL { ?publicationFlowUri pub:aantalUittreksels ?numberOfExtracts . }
           }
         }
-      }
-
+      )
       results = LinkedDB.query(sparql)
       if results.length === 0
         $errors_csv << [rec.dossiernummer, 'publication-flow', 'not-found', 'used:', nil, 'query parameters:', rec.dossiernummer, sparql]
