@@ -37,7 +37,7 @@ module LegacyPublicationConversion
           # record can not be converted, continue
         end
 
-        next unless (index % batch_size).zero? || index == records.size - 1
+        next unless ((index + 1) % batch_size).zero? || index == records.size - 1
 
         Mu.log.info "[ONGOING] Writing generated data to file for records "\
                     "#{(batch_number - 1) * batch_size + 1} until #{[batch_number * batch_size, index + 1].min}..."
